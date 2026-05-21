@@ -1,0 +1,18 @@
+# Qt编译垃圾
+build-*
+*.pro.user
+*.pro.user.*
+Debug/
+Release/
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.exe
+*.dll
+*.obj
+*.o
+*.log
+
+# 系统垃圾
+Thumbs.db
+.DS_Store
