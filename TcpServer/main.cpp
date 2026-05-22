@@ -1,11 +1,12 @@
 ﻿#include "tcpserver.h"
-
+#include "opedb.h"
 #include <QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    TcpServer w;
-    w.show();
+    opedb::getInstance().init();
+    // TcpServer w;
+    // w.show();
     return a.exec();
 }

@@ -23,6 +23,9 @@ public:
 public slots:
     void connectHost();
 
+private slots:
+    void on_send_pb_clicked();
+
 private:
     Ui::TcpClient *ui;
     QString strIp_;

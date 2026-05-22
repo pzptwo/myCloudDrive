@@ -1,7 +1,9 @@
 ﻿#include "tcpclient.h"
 #include "ui_tcpclient.h"
+#include "protocol.h"
 #include <QFile>
 #include <QDebug>
+#include <QString>
 #include <QMessageBox>
 #include <QStringList>
 #include <QHostAddress>
@@ -59,3 +61,29 @@ void TcpClient::connectHost()
 {
     QMessageBox::information(this,"连接服务器","连接服务器成功");
 }
+
+void TcpClient::on_send_pb_clicked()
+{
+    //获得文本框的数据
+    QString strMsg=ui->lineEdit->text();    //得到实际数据了，要发送数据，
+    if(strMsg.isEmpty())
+    {
+        QMessageBox::warning(this,"信息发送","信息发送不能为空");
+    }
+    else
+    {
+        //要发送了,通过myTcpSocket进行通信，要得到自定义的协议
+        PDU *pdu=mkPDU(strMsg.size());
+        //注意发送的实际的数据caMsg_,所以通过memcpy或者strcpy进行赋值
+        //void * __cdecl memcpy(void * __restrict__ _Dst,const void * __restrict__ _Src,size_t _Size) __MINGW_ATTRIB_DEPRECATED_SEC_WARN;
+        memcpy(pdu->caMsg,strMsg.toStdString().c_str(),strMsg.size());
+        qDebug()<<(char *)pdu->caMsg;
+        //现在随便定义一个类型
+        pdu->uiMsgType_=6666;
+        mytcpSocket_.write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=NULL;
+    }
+
+}
+
