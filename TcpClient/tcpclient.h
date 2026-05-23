@@ -20,11 +20,21 @@ public:
     ~TcpClient();
     void loadconfig();  //配置文件
 
+    void recvMsg();
+
 public slots:
     void connectHost();
 
 private slots:
-    void on_send_pb_clicked();
+    //void on_send_pb_clicked();
+
+
+
+    void on_login_pb_clicked();
+
+    void on_register_pb_clicked();
+
+    void on_layout_pb_clicked();
 
 private:
     Ui::TcpClient *ui;

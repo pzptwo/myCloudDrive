@@ -7,6 +7,16 @@
 typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 
 //struct 的作用域只要包含头文件即可；！！
+#define REGISTER_OK "register_ok"
+#define REGISTER_FALSE  "register_false:name existed"
+enum ENUM_MSG_TYPE
+{
+    ENUM_MSG_TYPE_MIN=0,
+    ENUM_MSG_TYPE_REGISTER_RESPEST,
+    ENUM_MSG_TYPE_REGISTER_RESPONSE,
+    ENUM_MSG_TYPE_MAX=0x00ffffff
+};
+
 typedef struct PDU
 {
     uint uiPDULen_;

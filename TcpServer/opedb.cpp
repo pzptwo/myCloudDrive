@@ -1,6 +1,5 @@
 ﻿#include "opedb.h"
 #include <QMessageBox>
-#include <QString>
 #include <QDebug>
 
 opedb::opedb(QObject *parent)
@@ -40,4 +39,24 @@ void opedb::init()
     {
         QMessageBox::critical(NULL,"打开数据库","打开数据库失败");
     }
+}
+
+bool opedb::handleregister(const char *caName, const char *caPwd)
+{
+    if(caName!=NULL&&caPwd!=NULL)
+    {
+    //进行拼接
+        QString data=QString("insert into usrInfo (name,pwd) values ('%1','%2')").arg(caName).arg(caPwd);
+        QSqlQuery query;
+        return query.exec(data);;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+opedb::~opedb()
+{
+    db_.close();
 }

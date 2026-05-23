@@ -5,7 +5,16 @@
 //由于长度都是大于0的
 //#define unsigned int uint
 typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
-
+#define REGISTER_OK "register_ok"
+#define REGISTER_FALSE  "register_false:name existed"
+//需要分通信协议的类型了
+enum ENUM_MSG_TYPE
+{
+    ENUM_MSG_TYPE_MIN=0,
+    ENUM_MSG_TYPE_REGISTER_RESPEST,
+    ENUM_MSG_TYPE_REGISTER_RESPONSE,
+    ENUM_MSG_TYPE_MAX=0x00ffffff
+};
 //struct 的作用域只要包含头文件即可；！！
 typedef struct PDU
 {
