@@ -1,6 +1,7 @@
 ﻿#include "tcpclient.h"
 #include "ui_tcpclient.h"
 #include "protocol.h"
+#include "opewidget.h"
 #include <QFile>
 #include <QDebug>
 #include <QString>
@@ -87,11 +88,115 @@ void TcpClient::recvMsg()
             }
             break;
         }
+        case ENUM_MSG_TYPE_LOGIN_RESPONSE:
+        {
+            if(0==strcmp(pdu->caData, LOGIN_OK))
+            {
+                QMessageBox::information(this,"登录","登录成功");
+                opeWidget::getInstance().show();
+                this->hide();
+            }
+
+            else if(0==strcmp(pdu->caData, LOGIN_FALSE))
+            {
+                QMessageBox::warning(this,"登录","登录失败");
+            }
+            break;
+        }
+        case ENUM_MSG_TYPE_ALL_ONLINE_RESPONSE:
+        {
+            //要把数据传到online页面上，online在friendlw上，
+            opeWidget::getInstance().getFriend().showAllOnline(pdu);
+            break;
+        }
+        case ENUM_MSG_TYPE_SEARCH_USER_RESPONSE:
+        {
+            //根据不同cadata来判断
+            if(0==strcmp(pdu->caData,SEARCH_ONLINE))
+            {
+                QMessageBox::information(this,"搜索",SEARCH_ONLINE);
+            }
+            else if(0==strcmp(pdu->caData,SEARCH_OFFLINE))
+            {
+                QMessageBox::information(this,"搜索",SEARCH_OFFLINE);
+            }
+            else if(0==strcmp(pdu->caData,SEARCH_NOPERSON))
+            {
+                QMessageBox::information(this,"搜索",SEARCH_NOPERSON);
+            }
+            break;
+        }
+        //分为两种类型
+        case ENUM_MSG_TYPE_ADD_USER_RESPONSE:
+        {
+
+            QMessageBox::information(this,"添加用户",pdu->caData);
+            break;
+        }
+        case ENUM_MSG_TYPE_ADD_USER_RESPEST:
+        {
+            //注意现在在的socket,与上面的不一样，是想加好友的，被加好友的在这里回复
+            char caLoginName[32]={'\0'};
+            memcpy(caLoginName,pdu->caData+32,32);
+            //枚举int
+            int ret=QMessageBox::information(this,"添加用户",QString("%1 want to add you as friend.").arg(caLoginName),QMessageBox::Yes,QMessageBox::No);
+            PDU *respdu=mkPDU(0);
+            memcpy(respdu->caData,pdu->caData,32);  //拷贝
+            memcpy(respdu->caData+32,pdu->caData+32,32);
+            if(ret==QMessageBox::Yes)
+            {
+                respdu->uiMsgType_=ENUM_MSG_TYPE_ADD_USER_AGREED;
+                //要发一个回复的respdu，后面进行转发
+            }
+            else
+            {
+                respdu->uiMsgType_=ENUM_MSG_TYPE_ADD_USER_REFUSE;
+            }
+            mytcpSocket_.write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=NULL;
+            break;
+        }
+        case ENUM_MSG_TYPE_ADD_USER_AGREED:
+        {
+            //打印消息
+            char caAddUser[32]={'\0'};
+            memcpy(caAddUser,pdu->caData,32);
+            QMessageBox::information(this,"添加好友",QString("'%1'同意添加好友").arg(caAddUser));
+
+            //这里主动刷新好友列表，变化了
+            break;
+        }
+
+        case ENUM_MSG_TYPE_ADD_USER_REFUSE:
+        {
+            char caAddUser[32]={'\0'};
+            memcpy(caAddUser,pdu->caData,32);
+            QMessageBox::information(this,"添加好友",QString("'%1'拒绝添加好友").arg(caAddUser));
+            break;
+        }
+
     default:
         break;
     }
     free(pdu);
     pdu=NULL;
+}
+
+TcpClient &TcpClient::getinstance()
+{
+    static TcpClient instance;
+    return instance;
+}
+
+QTcpSocket &TcpClient::getTcpSocket()
+{
+    return mytcpSocket_;
+}
+
+QString TcpClient::getstrLoginName()
+{
+    return strLoginName_;
 }
 
 void TcpClient::connectHost()
@@ -129,6 +234,28 @@ void TcpClient::on_send_pb_clicked()
 
 void TcpClient::on_login_pb_clicked()
 {
+    //这里进行登录的应用
+    QString strName=ui->name_le->text();
+    QString strPwd=ui->pwd_le->text();
+
+    //这里先验证一遍（我想优化的方向可能是封装在数据库里面？？？？）
+    if(!strName.isEmpty()&&!strPwd.isEmpty())
+    {
+        strLoginName_=strName;
+        //这里为啥要用上pdu(数据库在服务器那边),这里没有实际发送的消息
+        PDU *pdu=mkPDU(0);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_LOGIN_RESPEST;
+        memcpy(pdu->caData,strName.toStdString().c_str(),32);
+        memcpy(pdu->caData+32,strPwd.toStdString().c_str(),32);
+        //发送
+        mytcpSocket_.write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=NULL;
+    }
+    else
+    {
+        QMessageBox::warning(this,"登录","登录用户名和名字不能为空");
+    }
 
 }
 

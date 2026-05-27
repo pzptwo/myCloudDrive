@@ -21,6 +21,11 @@ public:
     void loadconfig();  //配置文件
 
     void recvMsg();
+    //为了是后面的能使用是同一个tcpclicent里面的
+    static TcpClient &getinstance();
+    //获得tcpsocketor创建一个方法
+    QTcpSocket &getTcpSocket();
+    QString getstrLoginName();
 
 public slots:
     void connectHost();
@@ -42,5 +47,6 @@ private:
     quint16 port_;
     //添加TcpSocket进行连接
     QTcpSocket mytcpSocket_;    //与服务器连接，2.与服务器进行交互。
+    QString strLoginName_;
 };
 #endif // TCPCLIENT_H
