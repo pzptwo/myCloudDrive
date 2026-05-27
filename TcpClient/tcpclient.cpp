@@ -175,6 +175,14 @@ void TcpClient::recvMsg()
             QMessageBox::information(this,"添加好友",QString("'%1'拒绝添加好友").arg(caAddUser));
             break;
         }
+        case ENUM_MSG_TYPE_FLUSH_FRIEND_RESPONSE:
+        {
+            char caAddUser[32]={'\0'};
+            memcpy(caAddUser,pdu->caData,32);
+            //这里要改变的opeWd里面的friendLW
+            opeWidget::getInstance().getFriend().flushFriendLW(pdu);
+            break;
+        }
 
     default:
         break;

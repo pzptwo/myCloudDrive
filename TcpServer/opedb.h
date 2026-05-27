@@ -24,6 +24,9 @@ public:
     int handleAddUserCheak(const char *caLoginName,const char* caAddUserName);
 
     void handleAddUser(const char *caLoginName,const char* caAddUserName);
+
+    //由于多个数据，用链表接收
+    QStringList handleFlushFriend(const char *caLoginName);
     ~opedb();
 signals:
 private:

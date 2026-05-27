@@ -20,10 +20,13 @@ public:
     void showAllOnline(PDU *pdu);
     //简单一点，正规的话属性都要定义在private，public接口
     QString strName_;
+    //要根据pdu里面的数据刷新
+    void flushFriendLW(PDU *pdu);
 signals:
 public slots:
     void showOnline();
     void serachUser();
+    void flushFriend();
 private:
     QTextEdit *pShowMsgTE_;
     QListWidget *pFriendListWidget_;

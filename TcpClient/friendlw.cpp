@@ -44,6 +44,7 @@ FriendLW::FriendLW(QWidget *parent)
 
     connect(pShowOnlineUsrPB_,&QPushButton::clicked,this,&FriendLW::showOnline);
     connect(pSearchUsrPB_,&QPushButton::clicked,this,&FriendLW::serachUser);
+    connect(pFlushFriendPB_,&QPushButton::clicked,this,&FriendLW::flushFriend);
 }
 
 void FriendLW::showAllOnline(PDU *pdu)
@@ -56,6 +57,23 @@ void FriendLW::showAllOnline(PDU *pdu)
         return;
     //这里调用online的方法
     pOnline_->showOnlineUser(pdu);
+}
+
+void FriendLW::flushFriendLW(PDU *pdu)
+{
+    if(pdu==NULL)
+    {
+        return ;
+    }
+    //这里是根据caNsg
+    uint uiSize=pdu->uiMsgLen_/32;
+    char caFriendName[32];
+    pFriendListWidget_->clear();
+    for(uint i=0;i<uiSize;i++)
+    {
+        memcpy(caFriendName,(char *)(pdu->caMsg)+i*32,32);
+        pFriendListWidget_->addItem(caFriendName);
+    }
 }
 
 void FriendLW::showOnline()
@@ -102,4 +120,17 @@ void FriendLW::serachUser()
     {
         return;
     }
+}
+
+void FriendLW::flushFriend()
+{
+    //要从数据库里面知道，必须要把caSelfName传进去。
+    QString caSelfName=TcpClient::getinstance().getstrLoginName();
+    PDU *pdu=mkPDU(0);
+    memcpy(pdu->caData,caSelfName.toStdString().c_str(),32);
+    pdu->uiMsgType_=ENUM_MSG_TYPE_FLUSH_FRIEND_RESPEST;
+
+    TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+    free(pdu);
+    pdu=NULL;
 }

@@ -187,6 +187,23 @@ void myTcpSocket::recvMsg()
             mytcpServer::getInstance().resend(caLoginName,pdu);
             break;
         }
+        case ENUM_MSG_TYPE_FLUSH_FRIEND_RESPEST:
+        {
+            //数据库相关操作
+            QStringList strFlushFriend=opedb::getInstance().handleFlushFriend(pdu->caData);
+            uint uiMsgLen=strFlushFriend.size()*32;
+            PDU *respdu=mkPDU(uiMsgLen);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_FLUSH_FRIEND_RESPONSE;
+            for(int i=0;i<strFlushFriend.size();i++)
+            {
+                //注意是caMsg
+                memcpy((char *)(respdu->caMsg)+i*32,strFlushFriend.at(i).toStdString().c_str(),strFlushFriend.at(i).size());
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=NULL;
+            break;
+        }
         default:
             break;
     }

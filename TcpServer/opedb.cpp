@@ -221,6 +221,34 @@ void opedb::handleAddUser(const char *caLoginName, const char *caAddUserName)
     query.exec(data);
 }
 
+QStringList opedb::handleFlushFriend(const char *caLoginName)
+{
+    //分几步获得
+    QString data=QString("select name from usrInfo where id in(select id from friend where friendid=(select id from usrInfo where name='%1'))and online=1").arg(caLoginName);
+    QSqlQuery query;
+    query.exec(data);
+
+    QStringList strFriendList;
+    strFriendList.clear();
+    while (query.next())
+    {
+        strFriendList.append(query.value(0).toString());
+        //打印日志验证一下
+        qDebug()<<query.value(0).toString();
+    }
+    data=QString("select name from usrInfo where id in(select friendid from friend where id=(select id from usrInfo where name='%1'))and online=1").arg(caLoginName);
+    //QSqlQuery query;
+    query.exec(data);
+    while (query.next())
+    {
+        strFriendList.append(query.value(0).toString());
+        //打印日志验证一下
+        qDebug()<<query.value(0).toString();
+    }
+    return strFriendList;
+
+}
+
 opedb::~opedb()
 {
     db_.close();
