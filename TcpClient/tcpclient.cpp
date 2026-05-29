@@ -183,7 +183,34 @@ void TcpClient::recvMsg()
             opeWidget::getInstance().getFriend().flushFriendLW(pdu);
             break;
         }
+        case ENUM_MSG_TYPE_DEL_FRIEND_RESPONSE:
+        {
+            QMessageBox::information(this,"删除好友",DEL_FRIEND_OK);
+            break;
+        }
+        case ENUM_MSG_TYPE_DEL_FRIEND_RESPEST:
+        {
 
+            //QString caLoginName=TcpClient::getinstance().getstrLoginName();
+            char caSelfName[32]={'\0'};
+            memcpy(caSelfName,pdu->caData,32);
+            //接收另一个被删好友的pdu
+            QMessageBox::information(this,"删除好友",QString("%1删除你作为好友").arg(caSelfName));
+            break;
+        }
+        case ENUM_MSG_TYPE_PRIVATE_CHAT_RESPEST:
+        {
+            if(PrivateChat::getInstance().isHidden())
+            {
+                PrivateChat::getInstance().show();
+            }
+            char caSendName[32]={'\0'};
+            memcpy(caSendName,pdu->caData,32);
+            PrivateChat::getInstance().getChatName(caSendName);
+            //把pdu传过去在该页面进行相关修改
+            PrivateChat::getInstance().updateMsg(pdu);
+            break;
+        }
     default:
         break;
     }

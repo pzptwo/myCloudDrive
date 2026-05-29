@@ -249,6 +249,24 @@ QStringList opedb::handleFlushFriend(const char *caLoginName)
 
 }
 
+bool opedb::handleDelFriend(const char *caLoginName, const char *caAddUserName)
+{
+    if(caLoginName==NULL||caAddUserName==NULL)
+    {
+        return false;
+    }
+
+    //双向的，分两次，清晰一点
+    QString data=QString("delete from friend where id=(select id from usrInfo where name='%1') and friendid=(select id from usrInfo where name='%2')").arg(caLoginName).arg(caAddUserName);
+    QSqlQuery query;
+    query.exec(data);
+    //如果不存在的数据库无影响？？
+    data=QString("delete from friend where id=(select id from usrInfo where name='%1') and friendid=(select id from usrInfo where name='%2')").arg(caAddUserName).arg(caLoginName);
+    query.exec(data);
+
+    return true;
+}
+
 opedb::~opedb()
 {
     db_.close();

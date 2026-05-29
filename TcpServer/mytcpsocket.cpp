@@ -204,6 +204,40 @@ void myTcpSocket::recvMsg()
             respdu=NULL;
             break;
         }
+        case ENUM_MSG_TYPE_DEL_FRIEND_RESPEST:
+        {
+            //这里caData顺序是loginname frinedname
+            char caFrinedName[32]={'\0'};
+            char caLoginName[32]={'\0'};
+            memcpy(caLoginName,pdu->caData,32);
+            memcpy(caFrinedName,pdu->caData+32,32);
+            //相关数据库的操作,而且删除好友肯定是一定能成功的，不用if也行
+            if(opedb::getInstance().handleDelFriend(caLoginName,caFrinedName))
+            {
+                PDU *respdu=mkPDU(0);
+                respdu->uiMsgType_=ENUM_MSG_TYPE_DEL_FRIEND_RESPONSE;
+                memcpy(respdu->caData,DEL_FRIEND_OK,32);
+
+                write((char *)respdu,respdu->uiPDULen_);
+                free(respdu);
+                respdu=NULL;
+            }
+
+            //这里还需要进行转发，被删除的人也要知道，被删了。(就是不同的socket)
+            mytcpServer::getInstance().resend(caFrinedName,pdu);
+            break;
+        }
+        case ENUM_MSG_TYPE_PRIVATE_CHAT_RESPEST:
+        {
+            //这里其实就是要获得接收消息用户的名字，进行转发
+            char caRecvName[32]={'\0'};
+            memcpy(caRecvName,pdu->caData+32,32);
+            //打印日志验证
+            qDebug()<<caRecvName;
+
+            mytcpServer::getInstance().resend(caRecvName,pdu);
+            break;
+        }
         default:
             break;
     }

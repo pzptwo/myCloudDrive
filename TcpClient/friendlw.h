@@ -11,6 +11,7 @@
 #include <QHBoxLayout>
 #include "online.h"
 #include "protocol.h"
+#include "privatechat.h"
 class FriendLW : public QWidget
 {
     Q_OBJECT
@@ -27,6 +28,8 @@ public slots:
     void showOnline();
     void serachUser();
     void flushFriend();
+    void delFriend();
+    void privateChat();
 private:
     QTextEdit *pShowMsgTE_;
     QListWidget *pFriendListWidget_;

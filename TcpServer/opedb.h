@@ -27,6 +27,8 @@ public:
 
     //由于多个数据，用链表接收
     QStringList handleFlushFriend(const char *caLoginName);
+
+    bool handleDelFriend(const char *caLoginName,const char* caAddUserName);
     ~opedb();
 signals:
 private:

@@ -45,6 +45,8 @@ FriendLW::FriendLW(QWidget *parent)
     connect(pShowOnlineUsrPB_,&QPushButton::clicked,this,&FriendLW::showOnline);
     connect(pSearchUsrPB_,&QPushButton::clicked,this,&FriendLW::serachUser);
     connect(pFlushFriendPB_,&QPushButton::clicked,this,&FriendLW::flushFriend);
+    connect(pDelFriendPB_,&QPushButton::clicked,this,&FriendLW::delFriend);
+    connect(pPrivateChatPB_,&QPushButton::clicked,this,&FriendLW::privateChat);
 }
 
 void FriendLW::showAllOnline(PDU *pdu)
@@ -133,4 +135,42 @@ void FriendLW::flushFriend()
     TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
     free(pdu);
     pdu=NULL;
+}
+
+void FriendLW::delFriend()
+{
+    if(pFriendListWidget_->currentItem()!=NULL)
+    {
+        //获得点击图标的名字
+        QString strFrinedName=pFriendListWidget_->currentItem()->text();
+        QString strSelfNmae=TcpClient::getinstance().getstrLoginName();
+
+        PDU *pdu=mkPDU(0);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_DEL_FRIEND_RESPEST;
+        memcpy(pdu->caData,strSelfNmae.toStdString().c_str(),strSelfNmae.size());
+        memcpy(pdu->caData+32,strFrinedName.toStdString().c_str(),strFrinedName.size());
+
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=NULL;
+    }
+}
+
+//先在这个页面开始进行。
+void FriendLW::privateChat()
+{
+    if(pFriendListWidget_->currentItem()!=NULL)
+    {
+        //获得点击图标的名字
+        QString strFrinedName=pFriendListWidget_->currentItem()->text();
+        PrivateChat::getInstance().getChatName(strFrinedName);
+        if(PrivateChat::getInstance().isHidden())
+        {
+            PrivateChat::getInstance().show();
+        }
+    }
+    else
+    {
+        QMessageBox::warning(this,"发送","发送者不能为空");
+    }
 }
