@@ -238,6 +238,19 @@ void myTcpSocket::recvMsg()
             mytcpServer::getInstance().resend(caRecvName,pdu);
             break;
         }
+        case ENUM_MSG_TYPE_GROUP_CHAT_RESPEST:
+        {
+            //还是数据库
+            QStringList strOnlineList=opedb::getInstance().handleGroupChat(pdu->caData);
+            //根据大小进行转发
+            for(int i=0;i<strOnlineList.size();i++)
+            {
+                //要获得接收方的名字
+                QString strRecvName=strOnlineList.at(i);
+                mytcpServer::getInstance().resend(strRecvName.toStdString().c_str(),pdu);
+            }
+            break;
+        }
         default:
             break;
     }

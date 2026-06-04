@@ -40,9 +40,6 @@ void PrivateChat::updateMsg(PDU *pdu)
 
 void PrivateChat::on_sendMsg_Pd_clicked()
 {
-    //这里获得相关的
-    QString strMsg=ui->sendMsg_le->text();
-    ui->sendMsg_le->clear();
     if(!strMsg.isEmpty())
     {
         //类型不同，只传大小

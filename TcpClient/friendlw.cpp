@@ -47,6 +47,7 @@ FriendLW::FriendLW(QWidget *parent)
     connect(pFlushFriendPB_,&QPushButton::clicked,this,&FriendLW::flushFriend);
     connect(pDelFriendPB_,&QPushButton::clicked,this,&FriendLW::delFriend);
     connect(pPrivateChatPB_,&QPushButton::clicked,this,&FriendLW::privateChat);
+    connect(pMsgSendPB_,&QPushButton::clicked,this,&FriendLW::groupchat);
 }
 
 void FriendLW::showAllOnline(PDU *pdu)
@@ -76,6 +77,13 @@ void FriendLW::flushFriendLW(PDU *pdu)
         memcpy(caFriendName,(char *)(pdu->caMsg)+i*32,32);
         pFriendListWidget_->addItem(caFriendName);
     }
+}
+
+void FriendLW::updateGroup(PDU *pdu)
+{
+
+    QString strRecvMsg=QString("%1 says %2").arg(pdu->caData).arg(pdu->caMsg);
+    pShowMsgTE_->append(strRecvMsg);
 }
 
 void FriendLW::showOnline()
@@ -173,4 +181,29 @@ void FriendLW::privateChat()
     {
         QMessageBox::warning(this,"发送","发送者不能为空");
     }
+}
+
+void FriendLW::groupchat()
+{
+    if(!pInputMsgLE_->text().isEmpty())
+    //这里获得相关的
+    {
+        QString strMsg=pInputMsgLE_->text();
+        pInputMsgLE_->clear();
+
+        //要得到所有的在线，就要一个登录的，去获得刷新
+        QString strSelfNmae=TcpClient::getinstance().getstrLoginName();
+        PDU *pdu=mkPDU(strMsg.size()+1);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_GROUP_CHAT_RESPEST;
+        memcpy(pdu->caData,strSelfNmae.toStdString().c_str(),strSelfNmae.size());
+        memcpy((char*)(pdu->caMsg),strMsg.toStdString().c_str(),strMsg.size());
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=nullptr;
+    }
+    else
+    {
+        QMessageBox::warning(this,"群发","群发不能为空");
+    }
+
 }

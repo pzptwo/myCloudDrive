@@ -23,6 +23,9 @@ public:
     QString strName_;
     //要根据pdu里面的数据刷新
     void flushFriendLW(PDU *pdu);
+
+    //由于要调用pShowMsgTE_
+    void updateGroup(PDU *pdu);
 signals:
 public slots:
     void showOnline();
@@ -30,6 +33,7 @@ public slots:
     void flushFriend();
     void delFriend();
     void privateChat();
+    void groupchat();
 private:
     QTextEdit *pShowMsgTE_;
     QListWidget *pFriendListWidget_;

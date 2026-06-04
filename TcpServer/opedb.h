@@ -29,6 +29,8 @@ public:
     QStringList handleFlushFriend(const char *caLoginName);
 
     bool handleDelFriend(const char *caLoginName,const char* caAddUserName);
+
+    QStringList handleGroupChat(const char *caLoginName);
     ~opedb();
 signals:
 private:

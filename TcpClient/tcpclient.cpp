@@ -211,6 +211,11 @@ void TcpClient::recvMsg()
             PrivateChat::getInstance().updateMsg(pdu);
             break;
         }
+        case ENUM_MSG_TYPE_GROUP_CHAT_RESPEST:
+        {
+            opeWidget::getInstance().getFriend().updateGroup(pdu);
+            break;
+        }
     default:
         break;
     }

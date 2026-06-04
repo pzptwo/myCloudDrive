@@ -267,6 +267,13 @@ bool opedb::handleDelFriend(const char *caLoginName, const char *caAddUserName)
     return true;
 }
 
+QStringList opedb::handleGroupChat(const char *caLoginName)
+{
+    //调用handleFlushFriend
+    QStringList onlineStrList=handleFlushFriend(caLoginName);
+    return onlineStrList;
+}
+
 opedb::~opedb()
 {
     db_.close();
