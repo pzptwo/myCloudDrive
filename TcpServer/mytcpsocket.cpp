@@ -2,7 +2,8 @@
 #include <QDebug>
 #include "opedb.h"
 #include "mytcpserver.h"
-
+#include <QDir>
+#include <QFileInfoList>
 
 myTcpSocket::myTcpSocket(QObject *parent)
     : QTcpSocket{parent}
@@ -50,6 +51,9 @@ void myTcpSocket::recvMsg()
             {
                 //为了省略一个大小的获取用strcpy,要用双引号！！！！
                 strcpy(respdu->caData,REGISTER_OK);
+                //当注册成功，区分不同的用户,已该用户的名字（主键）作为文件地址,但是注意是该文件./下面
+                QDir dir;
+                qDebug()<<"create dir :"<<dir.mkdir(QString("./%1").arg(caName));
             }
             else
             {
@@ -249,6 +253,160 @@ void myTcpSocket::recvMsg()
                 QString strRecvName=strOnlineList.at(i);
                 mytcpServer::getInstance().resend(strRecvName.toStdString().c_str(),pdu);
             }
+            break;
+        }
+        case ENUM_MSG_TYPE_CREATE_DIR_RESPEST:
+        {
+            QDir dir;
+            //由于类型有问题，所以要转换
+            QString strCurpath=QString("%1").arg((char *)pdu->caMsg);
+            qDebug()<<strCurpath;
+            bool ret =dir.exists(strCurpath);
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_CREATE_DIR_RESPONSE;
+            //首先根文件夹必须存在
+            if(ret)
+            {
+                char strName[32]={'\0'};
+                memcpy(strName,pdu->caData+32,32);
+                QString strNewPath=strCurpath+"/"+strName;
+                ret=dir.exists(strNewPath);
+                qDebug()<<strNewPath;
+                qDebug()<<"---->"<<ret;
+                if(ret)
+                {
+                    memcpy(respdu->caData,FILE_EXIST,64);
+                    //存在，重复了，不能创建
+                }
+                else
+                {
+                    memcpy(respdu->caData,FILE_CREATE_OK,64);
+                    //可以创建
+                    dir.mkdir(strNewPath);
+                }
+            }
+            //根文件夹不存在
+            else
+            {
+                memcpy(respdu->caData,DIR_NOT_EXISTED,64);
+            }
+
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=NULL;
+            break;
+        }
+        case ENUM_MSG_TYPE_FLUSH_DIR_RESPEST:
+        {
+            //使用新的写法，利用uiMsgLen
+            //C++ 中，对象创建后，不能用 对象(参数) 这种语法重新赋值 / 初始化，必须调用成员函数（如 setPath）。
+            char *caPath=new char[pdu->uiMsgLen_];
+            strcpy(caPath,(char *)(pdu->caMsg));
+            QDir dir(caPath);
+            //可以查询
+            // QFileInfoList entryInfoList(Filters filters = NoFilter, SortFlags sort = NoSort) const;
+            // QFileInfoList entryInfoList(const QStringList &nameFilters, Filters filters = NoFilter,
+            //                             SortFlags sort = NoSort) const;
+            QFileInfoList fileInfoLIst=dir.entryInfoList();
+            FileInfo *pFileInfo=nullptr;//文件指针
+            uint uiMsgLen=(uint)(sizeof(FileInfo)*fileInfoLIst.size());
+            PDU *respdu=mkPDU(uiMsgLen);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_FLUSH_DIR_RESPONSE;
+            QString strFileName;
+            for(auto i=0;i<fileInfoLIst.size();i++)
+            {
+                //给结构体的属性赋值FileInfo *与FileInfo??
+                pFileInfo=(FileInfo *)(respdu->caMsg)+i;
+                strFileName=fileInfoLIst[i].fileName();
+                memcpy(pFileInfo->caFileName,strFileName.toStdString().c_str(),strFileName.size());
+                if(fileInfoLIst[i].isDir())
+                {
+                    pFileInfo->iFileType=0;
+                }
+                else if(fileInfoLIst[i].isFile())
+                {
+                    pFileInfo->iFileType=1;
+                }
+            }
+            //PDU *respdu=mkPDU();
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+            break;
+        }
+        case ENUM_MSG_TYPE_DEL_DIR_RESPEST:
+        {
+            //获得路径及其名字啦
+            char strName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+
+            memcpy(strName,pdu->caData,32);
+            memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
+
+            //拼接新路径
+            QString strNewPath=QString("%1/%2").arg(pPath).arg(strName);
+            //打印验证日志
+            qDebug()<<strNewPath;
+
+            //这里是删除文件夹，！！！
+            QFileInfo fileInfo(strNewPath);
+            bool ret=false;
+            if(fileInfo.isDir())
+            {
+                //可以删除
+                QDir dir(strNewPath);
+                ret=dir.removeRecursively();
+            }
+            else if(fileInfo.isFile())
+            {
+                ret=false;
+            }
+
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_DEL_DIR_RESPONSE;
+            //根据ret的不同传值
+            if(ret)
+            {
+                memcpy(respdu->caData,DEL_DIR_OK,32);
+            }
+            else
+            {
+                memcpy(respdu->caData,DEL_DIR_FLASE,32);
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+            break;
+        }
+        case ENUM_MSG_TYPE_RENAME_FILE_RESPEST:
+        {
+            char strOldName[32]={'\0'};
+            char strNewName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+            memcpy(strOldName,pdu->caData,32);
+            memcpy(strNewName,pdu->caData+32,32);
+            memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
+
+            QString strOldPath=QString("%1/%2").arg(pPath).arg(strOldName);
+            QString strNewPath=QString("%1/%2").arg(pPath).arg(strNewName);
+
+            QDir dir;
+            //bool rename(const QString &oldName, const QString &newName);
+            bool ret=dir.rename(strOldPath,strNewPath);
+
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_RENAME_FILE_RESPONSE;
+            if(ret==true)
+            {
+                memcpy(respdu->caData,RENAME_OK,32);
+            }
+            else
+            {
+                memcpy(respdu->caData,RENAME_FLASE,32);
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
             break;
         }
         default:

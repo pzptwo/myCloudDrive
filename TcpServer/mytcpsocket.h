@@ -4,6 +4,7 @@
 #include <QTcpSocket>
 #include <QString>
 #include "protocol.h"
+#include <QDir>
 
 class myTcpSocket : public QTcpSocket
 {

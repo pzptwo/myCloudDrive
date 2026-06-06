@@ -21,6 +21,14 @@ typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 #define EXITED_FRIEND "user had been your friend"
 #define NOT_EXISTED "user not existed"
 #define DEL_FRIEND_OK "delete friend ok"
+#define DIR_NOT_EXISTED "dir not exist"
+#define FILE_EXIST "file exist"
+#define FILE_CREATE_OK "file create ok"
+#define DEL_DIR_OK "del ok"
+#define DEL_DIR_FLASE "del_dir_false :is file"
+
+#define RENAME_OK "rename ok"
+#define RENAME_FLASE "rename false"
 
 enum ENUM_MSG_TYPE
 {
@@ -54,7 +62,24 @@ enum ENUM_MSG_TYPE
 
     ENUM_MSG_TYPE_GROUP_CHAT_RESPEST, //群发，与在线有关
     ENUM_MSG_TYPE_GROUP_CHAT_RESPONSE,
+    ENUM_MSG_TYPE_CREATE_DIR_RESPEST, //创建问价夹
+    ENUM_MSG_TYPE_CREATE_DIR_RESPONSE,
+
+    ENUM_MSG_TYPE_FLUSH_DIR_RESPEST, //刷新文件夹,获得实时的文件夹信息
+    ENUM_MSG_TYPE_FLUSH_DIR_RESPONSE,
+
+    ENUM_MSG_TYPE_DEL_DIR_RESPEST, //删除文件夹,获得实时的文件夹信息
+    ENUM_MSG_TYPE_DEL_DIR_RESPONSE,
+
+    ENUM_MSG_TYPE_RENAME_FILE_RESPEST, //重命名文件
+    ENUM_MSG_TYPE_RENAME_FILE_RESPONSE,
     ENUM_MSG_TYPE_MAX=0x00ffffff
+};
+
+struct FileInfo
+{
+    char caFileName[64];    //这里都需要判断
+    int iFileType;
 };
 
 typedef struct PDU
