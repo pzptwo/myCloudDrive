@@ -21,7 +21,7 @@ public:
 
     //为了使用单例
     static PrivateChat &getInstance();
-    QString &getChatName(QString strname);
+    void getChatName(QString strname);
 
     void updateMsg(PDU *pdu);
 

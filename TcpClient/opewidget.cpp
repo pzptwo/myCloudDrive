@@ -32,5 +32,11 @@ opeWidget &opeWidget::getInstance()
 //这里用指针还是引用好
 FriendLW &opeWidget::getFriend()
 {
+    //解引用
     return *pFriend_;
+}
+
+Book &opeWidget::getBook()
+{
+    return *pBook_;
 }

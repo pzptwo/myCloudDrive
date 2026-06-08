@@ -19,7 +19,7 @@ PrivateChat &PrivateChat::getInstance()
     return instance;
 }
 
-QString &PrivateChat::getChatName(QString strname)
+void PrivateChat::getChatName(QString strname)
 {
     strChatName_=strname;
     strSelfName_=TcpClient::getinstance().getstrLoginName();
@@ -40,13 +40,16 @@ void PrivateChat::updateMsg(PDU *pdu)
 
 void PrivateChat::on_sendMsg_Pd_clicked()
 {
+    QString strMsg=ui->sendMsg_le->text();
     if(!strMsg.isEmpty())
     {
+        std::string s = strMsg.toStdString();
+
         //类型不同，只传大小
-        PDU *pdu=mkPDU(strMsg.size()+1);
+        PDU *pdu=mkPDU(s.size()+1);
         //对自定义的pdu进行设计
         pdu->uiMsgType_=ENUM_MSG_TYPE_PRIVATE_CHAT_RESPEST;
-        memcpy((char *)(pdu->caMsg),strMsg.toStdString().c_str(),strMsg.size());
+        memcpy((char *)(pdu->caMsg),s.c_str(),s.size());
 
         //我这里设定了，先用，再去tcpclient里面传参
         memcpy(pdu->caData,strSelfName_.toStdString().c_str(),strSelfName_.size());

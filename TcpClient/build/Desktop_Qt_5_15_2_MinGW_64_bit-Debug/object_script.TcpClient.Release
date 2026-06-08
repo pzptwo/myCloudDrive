@@ -7,6 +7,7 @@ release/privatechat.o
 release/protocol.o
 release/tcpclient.o
 release/qrc_config.o
+release/qrc_map.o
 release/moc_book.o
 release/moc_friendlw.o
 release/moc_online.o

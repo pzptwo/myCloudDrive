@@ -26,6 +26,7 @@ public:
     //获得tcpsocketor创建一个方法
     QTcpSocket &getTcpSocket();
     QString getstrLoginName();
+    QString getCurPath();
 
 public slots:
     void connectHost();
@@ -48,5 +49,6 @@ private:
     //添加TcpSocket进行连接
     QTcpSocket mytcpSocket_;    //与服务器连接，2.与服务器进行交互。
     QString strLoginName_;
+    QString strCurPath_;
 };
 #endif // TCPCLIENT_H

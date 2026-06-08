@@ -7,6 +7,7 @@ debug/privatechat.o
 debug/protocol.o
 debug/tcpclient.o
 debug/qrc_config.o
+debug/qrc_map.o
 debug/moc_book.o
 debug/moc_friendlw.o
 debug/moc_online.o

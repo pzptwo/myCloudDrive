@@ -81,8 +81,8 @@ void FriendLW::flushFriendLW(PDU *pdu)
 
 void FriendLW::updateGroup(PDU *pdu)
 {
-
-    QString strRecvMsg=QString("%1 says %2").arg(pdu->caData).arg(pdu->caMsg);
+    //类型啊
+    QString strRecvMsg=QString("%1 says %2").arg(pdu->caData).arg((char *)pdu->caMsg);
     pShowMsgTE_->append(strRecvMsg);
 }
 

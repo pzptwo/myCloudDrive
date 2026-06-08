@@ -409,6 +409,62 @@ void myTcpSocket::recvMsg()
             respdu=nullptr;
             break;
         }
+        case ENUM_MSG_TYPE_ENTRY_DIR_RESPEST:
+        {
+            char strName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+            strcpy(strName,pdu->caData);
+            memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
+            pPath[uiMsgLen] = '\0';
+
+            QString strPath=QString("%1/%2").arg(pPath).arg(strName);
+            qDebug()<<strPath;
+
+            PDU *respdu=nullptr;
+            //首先先判断当前的文件类型
+            QFileInfo fileInfo(strPath);
+            if(fileInfo.isFile())
+            {
+                respdu=mkPDU(0);
+                respdu->uiMsgType_=ENUM_MSG_TYPE_ENTRY_DIR_RESPONSE;
+                memcpy(respdu->caData,ENTRY_DIR_FLASE,sizeof(ENTRY_DIR_FLASE));
+            }
+            else if(fileInfo.isDir())
+            {
+                //这里的优化可以设定为函数，封装更好，可以复用
+                //这里功能与上面的刷新类似
+                QDir dir(strPath);
+                //可以查询
+                // QFileInfoList entryInfoList(Filters filters = NoFilter, SortFlags sort = NoSort) const;
+                // QFileInfoList entryInfoList(const QStringList &nameFilters, Filters filters = NoFilter,
+                //                             SortFlags sort = NoSort) const;
+                QFileInfoList fileInfoLIst=dir.entryInfoList();
+                FileInfo *pFileInfo=nullptr;//文件指针，注意噶
+                uint uiMsgLen=(uint)(sizeof(FileInfo)*fileInfoLIst.size());
+                respdu=mkPDU(uiMsgLen+1);
+                respdu->uiMsgType_=ENUM_MSG_TYPE_FLUSH_DIR_RESPONSE;
+                QString strFileName;
+                for(auto i=0;i<fileInfoLIst.size();i++)
+                {
+                    //给结构体的属性赋值FileInfo *与FileInfo??
+                    pFileInfo=(FileInfo *)(respdu->caMsg)+i;
+                    strFileName=fileInfoLIst[i].fileName();
+                    memcpy(pFileInfo->caFileName,strFileName.toStdString().c_str(),strFileName.size());
+                    if(fileInfoLIst[i].isDir())
+                    {
+                        pFileInfo->iFileType=0;
+                    }
+                    else if(fileInfoLIst[i].isFile())
+                    {
+                        pFileInfo->iFileType=1;
+                    }
+                }
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+            break;
+        }
         default:
             break;
     }

@@ -92,6 +92,8 @@ void TcpClient::recvMsg()
         {
             if(0==strcmp(pdu->caData, LOGIN_OK))
             {
+                //这里我要把路径记下来，方便后面的pdu
+                strCurPath_=QString("./%1").arg(strLoginName_);
                 QMessageBox::information(this,"登录","登录成功");
                 opeWidget::getInstance().show();
                 this->hide();
@@ -216,6 +218,38 @@ void TcpClient::recvMsg()
             opeWidget::getInstance().getFriend().updateGroup(pdu);
             break;
         }
+        case ENUM_MSG_TYPE_CREATE_DIR_RESPONSE:
+        {
+            QMessageBox::information(this,"创建文件夹",pdu->caData);
+            break;
+        }
+        case ENUM_MSG_TYPE_FLUSH_DIR_RESPONSE:
+        {
+            QString strEntryName=opeWidget::getInstance().getBook().getEntryName();
+            if(strEntryName!=nullptr)
+            {
+                strCurPath_=strCurPath_+"/"+strEntryName;
+                qDebug()<<strCurPath_;
+            }
+            opeWidget::getInstance().getBook().updateFileList(pdu);
+            break;
+        }
+        case ENUM_MSG_TYPE_DEL_DIR_RESPONSE:
+        {
+            QMessageBox::information(this,"删除文件夹",pdu->caData);
+            break;
+        }
+        case ENUM_MSG_TYPE_RENAME_FILE_RESPONSE:
+        {
+            QMessageBox::information(this,"重命名文件",pdu->caData);
+            break;
+        }
+        case ENUM_MSG_TYPE_ENTRY_DIR_RESPONSE:
+        {
+            opeWidget::getInstance().getBook().ClearEntryName();
+            QMessageBox::information(this,"进入文件夹",pdu->caData);
+            break;
+        }
     default:
         break;
     }
@@ -237,6 +271,11 @@ QTcpSocket &TcpClient::getTcpSocket()
 QString TcpClient::getstrLoginName()
 {
     return strLoginName_;
+}
+
+QString TcpClient::getCurPath()
+{
+    return strCurPath_;
 }
 
 void TcpClient::connectHost()

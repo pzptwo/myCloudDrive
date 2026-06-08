@@ -29,6 +29,7 @@ typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 
 #define RENAME_OK "rename ok"
 #define RENAME_FLASE "rename false"
+#define ENTRY_DIR_FLASE "entry_dir_false"
 
 enum ENUM_MSG_TYPE
 {
@@ -73,6 +74,9 @@ enum ENUM_MSG_TYPE
 
     ENUM_MSG_TYPE_RENAME_FILE_RESPEST, //重命名文件
     ENUM_MSG_TYPE_RENAME_FILE_RESPONSE,
+
+    ENUM_MSG_TYPE_ENTRY_DIR_RESPEST, //进入文件夹
+    ENUM_MSG_TYPE_ENTRY_DIR_RESPONSE,
     ENUM_MSG_TYPE_MAX=0x00ffffff
 };
 
