@@ -1,9 +1,12 @@
 ﻿#include "book.h"
 #include <QListWidgetItem>
+#include <QFileDialog>
 
 Book::Book(QWidget *parent)
     : QWidget{parent}
 {
+    bDownlaod_=false;
+    pTimer_=new QTimer;
     pBookListW_=new QListWidget;
     pReturnPB_=new QPushButton("返回");
     pCreateDirPB_=new QPushButton("创建文件夹");
@@ -39,6 +42,11 @@ Book::Book(QWidget *parent)
     connect(pRanamePB_,&QPushButton::clicked,this,&Book::reName);
     //void doubleClicked(const QModelIndex &index);
     connect(pBookListW_,&QListWidget::doubleClicked,this,&Book::entryDir);
+    connect(pReturnPB_,&QPushButton::clicked,this,&Book::returnpre);
+    connect(pUploadPB_,&QPushButton::clicked,this,&Book::updateFile);
+    connect(pTimer_,&QTimer::timeout,this,&Book::updateFileDate);
+    connect(pDelFilePB_,&QPushButton::clicked,this,&Book::delRegFile);
+    connect(pDownLoadPB_,&QPushButton::clicked,this,&Book::downloadFile);
 }
 
 void Book::updateFileList(PDU *pdu)
@@ -86,6 +94,21 @@ void Book::ClearEntryName()
 QString Book::getEntryName()
 {
     return strEntryName_;
+}
+
+void Book::setDownloadStatus(bool status)
+{
+    bDownlaod_=status;
+}
+
+QString Book::getDownlaodPath()
+{
+    return pDownloadPath_;
+}
+
+bool Book::getbDownlaod()
+{
+    return bDownlaod_;
 }
 
 void Book::createDir()
@@ -207,10 +230,176 @@ void Book::entryDir(const QModelIndex &index)
 
         PDU *pdu=mkPDU(strPath.size()+1);
         pdu->uiMsgType_=ENUM_MSG_TYPE_ENTRY_DIR_RESPEST;
+        strEntryName_ = strName;
         memcpy((char *)pdu->caMsg,strPath.toStdString().c_str(),strPath.size());
         memcpy(pdu->caData,strName.toStdString().c_str(),strName.size());
 
         TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
         free(pdu);
         pdu=nullptr;
+}
+
+void Book::returnpre()
+{
+    QString strPath=TcpClient::getinstance().getCurPath();
+    QString strName=TcpClient::getinstance().getstrLoginName();
+    QString strRootPath="./"+strName;
+    if(strPath==strRootPath)
+    {
+        QMessageBox::warning(this,"返回上一级","已经是最上层目录");
+    }
+
+    else
+    {
+        int index=strPath.lastIndexOf('/');
+        strPath.remove(index,strPath.size()-index);
+        qDebug()<<"----"<<strPath;
+        //更新当前路径
+        TcpClient::getinstance().modCurPath(strPath);
+
+        //调用刷新的逻辑
+        //这里防止进入的路径没有及时更改，先清空
+        ClearEntryName();
+        flushDir();
+    }
+
+}
+
+void Book::updateFile()
+{
+    updatePath_=QFileDialog::getOpenFileName();
+    qDebug()<<updatePath_;
+
+    if(updatePath_.isEmpty())
+    {
+        QMessageBox::warning(this,"选择的上传文件","选择的上传文件不能为空");
+    }
+    else
+    {
+        int index=updatePath_.lastIndexOf("/");
+        QString strName=updatePath_.right(updatePath_.size()-index-1);
+        qDebug()<<strName;
+
+        QFile file(updatePath_);
+        qint64 fileSize=file.size();
+        QString strPath=TcpClient::getinstance().getCurPath();
+        PDU *pdu=mkPDU(strPath.size()+1);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_UPDATE_FILE_RESPEST;
+        sprintf(pdu->caData,"%s %lld",strName.toStdString().c_str(),fileSize);
+        memcpy((char *)pdu->caMsg,strPath.toStdString().c_str(),strPath.size());
+
+        //获得的就要上传给服务器，还是通过pdu
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=nullptr;
+
+        //前面是发送pdu,后面这里是传文件二进制数据，以文件类型来,需要路径，保存把
+        pTimer_->start(1000);
+    }
+}
+
+void Book::updateFileDate()
+{
+    pTimer_->stop();
+    //以只写的方式打开
+    QFile file(updatePath_);
+    if(file.open(QIODevice::ReadOnly))
+    {
+        //循环读取，缓存4096最好
+        char *pBuffer=new char[4096];
+        while(true)
+        {
+            qint64 ret=file.read(pBuffer,4096);
+            if(ret>0&&ret<=4096)
+            {
+                TcpClient::getinstance().getTcpSocket().write(pBuffer,ret);
+            }
+            else if(ret==0)
+            {
+                break;
+            }
+            else
+            {
+               QMessageBox::warning(this,"上传文件","上传文件失败:读文件失败");
+                break;
+            }
+        }
+        file.close();
+        delete []pBuffer;
+        pBuffer=nullptr;
+    }
+    else
+    {
+        QMessageBox::warning(this,"上传文件","上传文件失败：打不开");
+        return;
+    }
+}
+
+void Book::delRegFile()
+{
+    //这里要获得路径及选择的item,因为这里的是widgetList
+    QString strPath=TcpClient::getinstance().getCurPath();
+    //QListWidgetItem *currentItem() const;
+    QListWidgetItem* pItem=pBookListW_->currentItem();
+    if(pItem==nullptr)
+    {
+        QMessageBox::warning(this,"选择的文件","选择的文件不能为空");
+        return ;
+    }
+    else
+    {
+        QString getName=pItem->text();
+        PDU *pdu=mkPDU(strPath.size()+1);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_DEL_FILE_RESPEST;
+        memcpy((char *)pdu->caMsg,strPath.toStdString().c_str(),strPath.size());
+        memcpy(pdu->caData,getName.toStdString().c_str(),32); //这里默认显示32
+
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=nullptr;
+
+    }
+}
+
+void Book::downloadFile()
+{
+    //从链表上面选取：
+    //这里要获得路径及选择的item,因为这里的是widgetList
+
+    //QListWidgetItem *currentItem() const;
+    QListWidgetItem* pItem=pBookListW_->currentItem();
+    if(pItem==nullptr)
+    {
+        QMessageBox::warning(this,"选择的文件","选择的文件不能为空");
+        return ;
+    }
+    else
+    {
+
+        //还要记录选择的下载路径
+        // static QString getSaveFileName---->::
+        QString pDownloadPath=QFileDialog::getSaveFileName();
+        if(pDownloadPath.isEmpty())
+        {
+            QMessageBox::warning(this,"下载文件","请选择下载文件的位置");
+            pDownloadPath.clear();
+        }
+        else
+        {
+            pDownloadPath_=pDownloadPath;
+        }
+
+        QString strPath=TcpClient::getinstance().getCurPath();
+        PDU *pdu=mkPDU(strPath.size()+1);
+        QString getName=pItem->text();
+
+        pdu->uiMsgType_=ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST;
+        memcpy((char *)pdu->caMsg,strPath.toStdString().c_str(),strPath.size());
+        memcpy(pdu->caData,getName.toStdString().c_str(),32); //这里默认显示32
+
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=nullptr;
+
+    }
 }

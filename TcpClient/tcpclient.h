@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QString>
 #include <QTcpSocket>
+#include <QFile>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -27,6 +28,9 @@ public:
     QTcpSocket &getTcpSocket();
     QString getstrLoginName();
     QString getCurPath();
+    void modCurPath(QString strCurPath);
+
+    QFile downloadFile;
 
 public slots:
     void connectHost();

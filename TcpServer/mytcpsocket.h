@@ -5,6 +5,8 @@
 #include <QString>
 #include "protocol.h"
 #include <QDir>
+#include <QFile>
+#include <QTimer>
 
 class myTcpSocket : public QTcpSocket
 {
@@ -20,8 +22,14 @@ public slots:
     //当有数据发送过来，会发送readyRead.
     void recvMsg();
     void solvediscoonnet();
+    void sendDownloadFiletoClinet();
 private:
     QString strName_;
+    QFile updateFile_;
+    qint64 total_;
+    qint64 received_;
+    bool update_;
+    QTimer *pTimer_;
 };
 
 #endif // MYTCPSOCKET_H

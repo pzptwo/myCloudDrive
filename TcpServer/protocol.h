@@ -31,6 +31,12 @@ typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 #define RENAME_FLASE "rename false"
 #define ENTRY_DIR_FLASE "entry_dir_false"
 
+#define UPDATE_OK "update ok"
+#define UPDATE_FALSE "update false"
+
+#define DEL_FILE_OK "del ok"
+#define DEL_FILE_FLASE "del_file_false :is dir"
+
 enum ENUM_MSG_TYPE
 {
     ENUM_MSG_TYPE_MIN=0,
@@ -77,6 +83,15 @@ enum ENUM_MSG_TYPE
 
     ENUM_MSG_TYPE_ENTRY_DIR_RESPEST, //进入文件夹
     ENUM_MSG_TYPE_ENTRY_DIR_RESPONSE,
+
+    ENUM_MSG_TYPE_UPDATE_FILE_RESPEST, //上传文件。
+    ENUM_MSG_TYPE_UPDATE_FILE_RESPONSE,
+
+    ENUM_MSG_TYPE_DEL_FILE_RESPEST, //删除常规文件
+    ENUM_MSG_TYPE_DEL_FILE_RESPONSE,
+
+    ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST, //删除常规文件
+    ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPONSE,
     ENUM_MSG_TYPE_MAX=0x00ffffff
 };
 

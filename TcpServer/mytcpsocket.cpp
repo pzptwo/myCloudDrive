@@ -11,6 +11,10 @@ myTcpSocket::myTcpSocket(QObject *parent)
     //要完成信号槽的功能，注意几点
     connect(this,&myTcpSocket::readyRead,this,&myTcpSocket::recvMsg);
     connect(this,&QAbstractSocket::disconnected,this,&myTcpSocket::solvediscoonnet);
+    update_=false;
+    pTimer_=new QTimer;
+
+    connect(pTimer_,&QTimer::timeout,this,&myTcpSocket::sendDownloadFiletoClinet);
 }
 
 QString myTcpSocket::getstrName()
@@ -21,6 +25,9 @@ QString myTcpSocket::getstrName()
 //有信号调用。
 void myTcpSocket::recvMsg()
 {
+
+    if(update_==false)
+    {
     //tcpsocket套接字里面有东西了
     qDebug()<<this->bytesAvailable();//当前客户端已经发送过来、等待你读取的 字节数量;
     //分析现在的pdu格式,一定要先把uiPDULen先读出来，不先读的话，uiMsgLen得不到
@@ -465,12 +472,154 @@ void myTcpSocket::recvMsg()
             respdu=nullptr;
             break;
         }
+        case ENUM_MSG_TYPE_UPDATE_FILE_RESPEST:
+        {
+            char strUpdateName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+            qint64 fileSize;
+            //客服端使用的是sprintf
+            sscanf(pdu->caData,"%s %lld",strUpdateName,&fileSize);
+            memcpy(pPath,(char *)(pdu->caMsg),pdu->uiMsgLen_);
+            pPath[uiMsgLen] = '\0';
+
+            QString strPath=QString("%1/%2").arg(pPath).arg(strUpdateName);
+            qDebug()<<strPath;
+
+            //服务器要开始处理
+            updateFile_.setFileName(strPath);
+
+            //要打开文件，已只读的方式打开 bool open(OpenMode flags) override;
+            //会以只读的方式打开文件，如不存在则自动创建一个
+            //优化方向可以使用多线程
+            if(updateFile_.open(QIODevice::WriteOnly))
+            {
+                update_=true;
+                total_=fileSize;
+                received_=0;
+            }
+            //要区分文件数据是以二进制，而这里全是pdu。
+            delete[] pPath;
+            pPath=nullptr;
+            break;
+        }
+        case ENUM_MSG_TYPE_DEL_FILE_RESPEST:
+        {
+            //获得路径及其名字啦
+            char strName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+
+            memcpy(strName,pdu->caData,32);
+            memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
+
+            //拼接新路径
+            QString strNewPath=QString("%1/%2").arg(pPath).arg(strName);
+            //打印验证日志
+            qDebug()<<strNewPath;
+
+            //这里是删除文件，！！！
+            QFileInfo fileInfo(strNewPath);
+            bool ret=false;
+            if(fileInfo.isDir())
+            {
+                ret=false;
+                qDebug()<<"dir---"<<ret;
+            }
+            else if(fileInfo.isFile())
+            {
+                //可以删除
+                QDir dir;
+                ret=dir.remove(strNewPath);
+                qDebug()<<"file---"<<ret;
+            }
+
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_DEL_FILE_RESPONSE;
+            //根据ret的不同传值
+            if(ret)
+            {
+                memcpy(respdu->caData,DEL_FILE_OK,32);
+            }
+            else
+            {
+                memcpy(respdu->caData,DEL_FILE_FLASE,32);
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+            break;
+        }
+        case ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST:
+        {
+            //获得路径及其名字啦
+            char strName[32]={'\0'};
+            char *pPath=new char[pdu->uiMsgLen_];
+
+            memcpy(strName,pdu->caData,32);
+            memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
+
+            //拼接新路径
+            QString strNewPath=QString("%1/%2").arg(pPath).arg(strName);
+            //打印验证日志
+            qDebug()<<strNewPath;
+            delete []pPath;
+            pPath=nullptr;
+
+            //这里先给客服端传过去文件名及大小：
+            QFileInfo fileInfo(strNewPath);
+            qint64 fileSize=fileInfo.size();
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPONSE;
+            sprintf(respdu->caData,"%s %lld",strName,fileSize);
+
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+
+            //这里必须把文件以只读的方式打开
+            updateFile_.setFileName(strNewPath);
+            updateFile_.open(QIODevice::ReadOnly);
+            pTimer_->start(1000);
+            break;
+        }
         default:
             break;
     }
         free(pdu);
         pdu=NULL;
     //qDebug()<<pdu->uiMsgType_<<(char *)(pdu->caMsg);
+    }
+    else
+    {
+        //这里的readall去理解,QByteArray readAll();把读到的加入到文件里面
+        //这里的前提是前面pdu类型是文件还没有关闭
+        QByteArray ret=readAll();
+        updateFile_.write(ret);
+        received_+=ret.size();
+        if(total_==received_)
+        {
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_UPDATE_FILE_RESPONSE;
+            //把标志改了，和文件关闭
+            updateFile_.close();
+            update_=false;
+            memcpy(respdu->caData,UPDATE_OK,sizeof(UPDATE_OK));
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+        }
+        else if(total_<received_)
+        {
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_UPDATE_FILE_RESPONSE;
+            //把标志改了，和文件关闭
+            updateFile_.close();
+            update_=false;
+            memcpy(respdu->caData,UPDATE_FALSE,sizeof(UPDATE_FALSE));
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+        }
+    }
 }
 
 void myTcpSocket::solvediscoonnet()
@@ -482,5 +631,37 @@ void myTcpSocket::solvediscoonnet()
     std::string name = strName_.toStdString();
     opedb::getInstance().handleoffline(name.c_str());
     emit clientOffline(this);
+}
+
+void myTcpSocket::sendDownloadFiletoClinet()
+{
+    pTimer_->stop();
+    //4096效率最大
+    char *pData=new char[4096];
+    qint64 ret=0;
+    while(true)
+    {
+        //这里只能是读取！！！
+        ret=updateFile_.read(pData,4096);
+        if(ret>0&&ret<=4096)
+        {
+            write(pData,ret);
+
+        }
+        else if(ret==0)
+        {
+            updateFile_.close();
+            break;
+
+        }
+        else if(ret<0)
+        {
+            qDebug()<<"发送文件到客户端失败";
+            updateFile_.close();
+            break;
+        }
+    }
+    delete []pData;
+    pData=nullptr;
 }
 

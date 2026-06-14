@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QStringList>
 #include <QHostAddress>
+#include "book.h"
 
 TcpClient::TcpClient(QWidget *parent)
     : QWidget(parent)
@@ -63,6 +64,8 @@ void TcpClient::loadconfig()
 //一定要把connect用上，否则信号槽没有用
 void TcpClient::recvMsg()
 {
+    if(!opeWidget::getInstance().getBook().getbDownlaod())
+    {
     //tcpsocket套接字里面有东西了
     qDebug()<<mytcpSocket_.bytesAvailable();//当前客户端已经发送过来、等待你读取的 字节数量;
     //分析现在的pdu格式,一定要先把uiPDULen先读出来，不先读的话，uiMsgLen得不到
@@ -226,7 +229,7 @@ void TcpClient::recvMsg()
         case ENUM_MSG_TYPE_FLUSH_DIR_RESPONSE:
         {
             QString strEntryName=opeWidget::getInstance().getBook().getEntryName();
-            if(strEntryName!=nullptr)
+            if(!strEntryName.isEmpty())
             {
                 strCurPath_=strCurPath_+"/"+strEntryName;
                 qDebug()<<strCurPath_;
@@ -237,6 +240,7 @@ void TcpClient::recvMsg()
         case ENUM_MSG_TYPE_DEL_DIR_RESPONSE:
         {
             QMessageBox::information(this,"删除文件夹",pdu->caData);
+            opeWidget::getInstance().getBook().flushDir();
             break;
         }
         case ENUM_MSG_TYPE_RENAME_FILE_RESPONSE:
@@ -250,11 +254,72 @@ void TcpClient::recvMsg()
             QMessageBox::information(this,"进入文件夹",pdu->caData);
             break;
         }
+        case ENUM_MSG_TYPE_UPDATE_FILE_RESPONSE:
+        {
+            QMessageBox::information(this,"上传文件",pdu->caData);
+            break;
+        }
+        case ENUM_MSG_TYPE_DEL_FILE_RESPONSE:
+        {
+            QMessageBox::information(this,"删除文件",pdu->caData);
+            opeWidget::getInstance().getBook().flushDir();
+            break;
+        }
+        case ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPONSE:
+        {
+            qDebug()<<pdu->caData;
+            //前面是sprintf---->sscanf
+            char DownloadName[32]={'\0'};
+            sscanf(pdu->caData,"%s %lld",DownloadName,&(opeWidget::getInstance().getBook().total_));
+            if(strlen(DownloadName)>0&&opeWidget::getInstance().getBook().total_>0)
+            {
+                opeWidget::getInstance().getBook().setDownloadStatus(true);
+                downloadFile.setFileName(opeWidget::getInstance().getBook().getDownlaodPath());
+                if(!downloadFile.open(QIODevice::WriteOnly))
+                {
+                    QMessageBox::warning(this,"下载文件","获得保存文件的路劲失败");
+                }
+            }
+
+            //因为是二进制数据，这里先判断是否打开了
+
+            break;
+        }
     default:
         break;
     }
     free(pdu);
     pdu=NULL;
+    }
+    else
+    {
+        QByteArray buffer=mytcpSocket_.readAll();
+        downloadFile.write(buffer);
+        //对方分批发，所以要判断啦
+        Book &pBook=opeWidget::getInstance().getBook();
+        pBook.recived_+=buffer.size();
+
+        if(pBook.total_==pBook.recived_)
+        {
+            QMessageBox::information(this,"下载文件","下载文件成功");
+            downloadFile.close();
+            pBook.total_=0;
+            pBook.recived_=0;
+            //发送完就要吧下载状态设置为false
+            pBook.setDownloadStatus(false);
+        }
+        else if(pBook.total_<pBook.recived_)
+        {
+            downloadFile.close();
+            pBook.total_=0;
+            pBook.recived_=0;
+            //发送完就要吧下载状态设置为false
+            pBook.setDownloadStatus(false);
+            QMessageBox::critical(this,"下载文件","下载文件失败");
+        }
+        //这里是属于在下载。
+
+    }
 }
 
 TcpClient &TcpClient::getinstance()
@@ -276,6 +341,11 @@ QString TcpClient::getstrLoginName()
 QString TcpClient::getCurPath()
 {
     return strCurPath_;
+}
+
+void TcpClient::modCurPath(QString strCurPath)
+{
+    strCurPath_=strCurPath;
 }
 
 void TcpClient::connectHost()
