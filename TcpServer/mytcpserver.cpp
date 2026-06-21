@@ -1,4 +1,5 @@
-﻿#include "mytcpserver.h"
+#include "mytcpserver.h"
+#include <cstring>
 
 mytcpServer::mytcpServer() {}
 
@@ -36,7 +37,10 @@ void mytcpServer::resend(const char *caAddUser, PDU *pdu)
     //
     for(int i=0;i<tcpSocketList_.size();i++)
     {
-        if(caAddUser==tcpSocketList_.at(i)->getstrName())
+        //caAddUser 和 getstrName() 返回的都是 const char* ，用 == 比较的是两个指针的 内存地址 ，
+        //而不是字符串内容。它们几乎永远不相等，
+        //所以 resend() 永远找不到目标 socket ，PDU 根本转发不到 bob 那里，bob 收不到好友请求。
+        if(strcmp(caAddUser, tcpSocketList_.at(i)->getstrName().toStdString().c_str()) == 0)
         {
             tcpSocketList_.at(i)->write((char *)pdu,pdu->uiPDULen_);
         }

@@ -26,6 +26,7 @@ public:
 
     //由于要调用pShowMsgTE_
     void updateGroup(PDU *pdu);
+    QListWidget *getpFriendListWidget();
 signals:
 public slots:
     void showOnline();

@@ -1,4 +1,4 @@
-﻿#include "opedb.h"
+#include "opedb.h"
 #include <QMessageBox>
 #include <QDebug>
 
@@ -207,17 +207,21 @@ void opedb::handleAddUser(const char *caLoginName, const char *caAddUserName)
     QString data=QString("select id from usrInfo where name ='%1'").arg(caLoginName);
     QSqlQuery query;
     query.exec(data);
+    // query.next();
+    query.next();
     //记得把值取出来
     int selfid=query.value(0).toInt();
 
     //获得好友的id
     data=QString("select id from usrInfo where name ='%1'").arg(caAddUserName);
     query.exec(data);
+    //记得 query.next();
+    query.next();
     //记得把值取出来
     int friendid=query.value(0).toInt();
 
     //都有了id，双向好友
-    data=QString("insert into friend (id,friendid) values (%1,%2), (%2,%1").arg(selfid).arg((friendid));
+    data=QString("insert into friend (id,friendid) values (%1,%2), (%2,%1)").arg(selfid).arg(friendid);
     query.exec(data);
 }
 
@@ -241,7 +245,11 @@ QStringList opedb::handleFlushFriend(const char *caLoginName)
     query.exec(data);
     while (query.next())
     {
-        strFriendList.append(query.value(0).toString());
+        QString strName=query.value(0).toString();
+        if(!strFriendList.contains(strName))
+        {
+            strFriendList.append(strName);
+        }
         //打印日志验证一下
         qDebug()<<query.value(0).toString();
     }

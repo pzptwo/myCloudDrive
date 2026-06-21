@@ -15,6 +15,7 @@ class myTcpSocket : public QTcpSocket
 public:
     explicit myTcpSocket(QObject *parent = nullptr);
     QString getstrName();
+    void copyDir(QString srcPath,QString desPath);
 signals:
     void clientOffline(myTcpSocket *mysocket);    //信号要与槽函数参数及类型对应
 //

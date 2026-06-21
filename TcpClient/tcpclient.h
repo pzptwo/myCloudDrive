@@ -21,6 +21,7 @@ public:
     ~TcpClient();
     void loadconfig();  //配置文件
 
+    //void extracted(PDU *&pdu, char *&pos);
     void recvMsg();
     //为了是后面的能使用是同一个tcpclicent里面的
     static TcpClient &getinstance();

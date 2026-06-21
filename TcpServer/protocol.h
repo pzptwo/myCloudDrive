@@ -16,10 +16,13 @@ typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 #define SEARCH_OFFLINE "existed but offline"
 #define SEARCH_NOPERSON "not exist"
 
+
 #define UNKNOWN_ERROR "unknown error"
 #define ADD_FRIEND_OFFLINE "user offline"
 #define EXITED_FRIEND "user had been your friend"
 #define NOT_EXISTED "user not existed"
+#define SEND_ADD_FRIEND "send add friend"
+
 #define DEL_FRIEND_OK "delete friend ok"
 #define DIR_NOT_EXISTED "dir not exist"
 #define FILE_EXIST "file exist"
@@ -36,6 +39,11 @@ typedef unsigned int uint;  //两个的阶段不同（编译与预处理）
 
 #define DEL_FILE_OK "del ok"
 #define DEL_FILE_FLASE "del_file_false :is dir"
+
+#define MOVE_DIR_OK "move ok"
+#define MOVE_DIR_FLASE "move_dir_false :path is filepath"
+
+#define COMMEN_ERR "operate fail: system is busy"
 
 enum ENUM_MSG_TYPE
 {
@@ -92,6 +100,15 @@ enum ENUM_MSG_TYPE
 
     ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST, //删除常规文件
     ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPONSE,
+
+    ENUM_MSG_TYPE_SHARE_FILE_RESPEST,   //共享文件
+    ENUM_MSG_TYPE_SHARE_FILE_RESPONSE,
+
+    ENUM_MSG_TYPE_SHARE_FILE_NOTE,
+    ENUM_MSG_TYPE_SHARE_FILE_NOTE_RESPONSE,
+
+    ENUM_MSG_TYPE_MOVE_FILE_RESPEST,   //移动文件
+    ENUM_MSG_TYPE_MOVE_FILE_RESPONSE,
     ENUM_MSG_TYPE_MAX=0x00ffffff
 };
 

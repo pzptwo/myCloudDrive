@@ -1,6 +1,8 @@
 ﻿#include "book.h"
 #include <QListWidgetItem>
 #include <QFileDialog>
+#include "opewidget.h"
+#include "sharefile.h"
 
 Book::Book(QWidget *parent)
     : QWidget{parent}
@@ -24,11 +26,15 @@ Book::Book(QWidget *parent)
     pDownLoadPB_=new QPushButton("下载文件");
     pDelFilePB_=new QPushButton("删除文件");
     pShareFilePB_=new QPushButton("共享文件");
+    pMoveFilePB_=new QPushButton("移动文件");
+    pSelectMoveDir_=new QPushButton("选择路径");
+    pSelectMoveDir_->setEnabled(false);
     QVBoxLayout *pFileVBL=new QVBoxLayout;
     pFileVBL->addWidget(pUploadPB_);
     pFileVBL->addWidget(pDownLoadPB_);
     pFileVBL->addWidget(pDelFilePB_);
     pFileVBL->addWidget(pShareFilePB_);
+    pFileVBL->addWidget(pMoveFilePB_);
 
     QHBoxLayout *pMain=new QHBoxLayout;
     pMain->addWidget(pBookListW_);
@@ -47,6 +53,9 @@ Book::Book(QWidget *parent)
     connect(pTimer_,&QTimer::timeout,this,&Book::updateFileDate);
     connect(pDelFilePB_,&QPushButton::clicked,this,&Book::delRegFile);
     connect(pDownLoadPB_,&QPushButton::clicked,this,&Book::downloadFile);
+    connect(pShareFilePB_,&QPushButton::clicked,this,&Book::shareFile);
+    connect(pMoveFilePB_,&QPushButton::clicked,this,&Book::moveFile);
+    connect(pSelectMoveDir_,&QPushButton::clicked,this,&Book::selectMoveDir);
 }
 
 void Book::updateFileList(PDU *pdu)
@@ -110,6 +119,8 @@ bool Book::getbDownlaod()
 {
     return bDownlaod_;
 }
+
+
 
 void Book::createDir()
 {
@@ -401,5 +412,82 @@ void Book::downloadFile()
         free(pdu);
         pdu=nullptr;
 
+    }
+}
+
+void Book::shareFile()
+{
+    QListWidgetItem* pItem=pBookListW_->currentItem();
+    if(pItem==nullptr)
+    {
+        QMessageBox::warning(this,"选择的文件","选择的文件不能为空");
+        return ;
+    }
+    else
+    {
+        ShareFileName_=pItem->text();
+
+    }
+    FriendLW &friendlw=opeWidget::getInstance().getFriend();
+    QListWidget *pFriendList=friendlw.getpFriendListWidget();
+
+    shareFile::getInstance().updateFriendlw(pFriendList);
+    if(shareFile::getInstance().isHidden())
+    {
+        shareFile::getInstance().show();
+    }
+
+}
+
+QString Book::getShareFileName()
+{
+    return ShareFileName_;
+}
+
+void Book::moveFile()
+{
+    QListWidgetItem* pItem=pBookListW_->currentItem();
+    if(pItem!=nullptr)
+    {
+        QString strCurpath=TcpClient::getinstance().getCurPath();
+        moveFileName_=pItem->text();
+        moveSrcFilePath_=strCurpath+'/'+moveFileName_;
+        pSelectMoveDir_->setEnabled(true);
+    }
+    else
+    {
+        QMessageBox::warning(this,"移动文件","移动的文件不能为空");
+        return ;
+    }
+}
+
+void Book::selectMoveDir()
+{
+    QListWidgetItem* pItem=pBookListW_->currentItem();
+    if(pItem!=nullptr)
+    {
+        QString strCurpath=TcpClient::getinstance().getCurPath();
+        QString moveDesName=pItem->text();
+        moveDesFilePath_=strCurpath+'/'+moveDesName;
+        //这里要传给服务器所有需要原路径的长度及目标路径的长度和文件名字
+        int srcLen=moveSrcFilePath_.size();
+        int desLen=moveDesFilePath_.size();
+
+        PDU *pdu=mkPDU(srcLen+desLen+2);
+        pdu->uiMsgType_=ENUM_MSG_TYPE_MOVE_FILE_RESPEST;
+
+        sprintf(pdu->caData,"%d %d %s",srcLen,desLen,moveFileName_.toStdString().c_str());
+        memcpy(pdu->caMsg,moveSrcFilePath_.toStdString().c_str(),srcLen);
+        memcpy((char *)(pdu->caMsg)+(srcLen+1),moveDesFilePath_.toStdString().c_str(),desLen);
+
+        TcpClient::getinstance().getTcpSocket().write((char *)pdu,pdu->uiPDULen_);
+        free(pdu);
+        pdu=nullptr;
+        pSelectMoveDir_->setEnabled(false);
+    }
+    else
+    {
+        QMessageBox::warning(this,"选择移动路径","移动路径不能为空");
+        return ;
     }
 }

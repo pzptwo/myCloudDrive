@@ -285,6 +285,48 @@ void TcpClient::recvMsg()
 
             break;
         }
+        case ENUM_MSG_TYPE_SHARE_FILE_NOTE_RESPONSE:
+        {
+            QMessageBox::information(this,"共享文件","共享文件成功");
+            break;
+        }
+        case ENUM_MSG_TYPE_SHARE_FILE_NOTE:
+        {
+            //服务器传过来的只有文件的路径，拷贝下来，截取方便打印日志观察是否合适
+            char *pPath=new char[pdu->uiMsgLen_];
+            strcpy(pPath,(char *)pdu->caMsg);
+            //记得类型要匹配
+            char* pos=strrchr(pPath,'/');
+            if(nullptr!=pos)
+            {
+                pos++;
+                QString strNote=QString("%1 share %2\n do you accept the file").arg(pdu->caData).arg(pos);
+                int ret=QMessageBox::question(this,"共享文件",strNote);
+
+                if(ret==QMessageBox::Yes)
+                {
+                    //还是要传递文件的路径
+                    PDU *respdu=mkPDU(pdu->uiMsgLen_);
+                    respdu->uiMsgType_=ENUM_MSG_TYPE_SHARE_FILE_NOTE_RESPONSE;
+                    QString recvName=TcpClient::getinstance().getstrLoginName();
+                    strcpy(respdu->caData,recvName.toStdString().c_str());
+                    memcpy(respdu->caMsg,pdu->caMsg,pdu->uiMsgLen_);
+
+                    TcpClient::getinstance().getTcpSocket().write((char*)respdu,respdu->uiPDULen_);
+
+                    free(respdu);
+                    respdu=nullptr;
+
+                }
+                delete[]pPath;
+                pPath=nullptr;
+            }
+        }
+        case ENUM_MSG_TYPE_MOVE_FILE_RESPONSE:
+        {
+            QMessageBox::information(this,"移动文件",pdu->caData);
+            break;
+        }
     default:
         break;
     }

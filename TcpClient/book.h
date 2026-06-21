@@ -11,6 +11,8 @@
 #include <QInputDialog>
 #include "protocol.h"
 #include <QTimer>
+#include "friendlw.h"
+#include <QListWidget>
 
 class Book : public QWidget
 {
@@ -26,6 +28,10 @@ public:
     qint64 recived_;
     QString getDownlaodPath();
     bool getbDownlaod();
+
+
+
+
 private:
     QListWidget *pBookListW_;
     QPushButton *pReturnPB_;
@@ -37,6 +43,8 @@ private:
     QPushButton *pDownLoadPB_;
     QPushButton *pDelFilePB_;
     QPushButton *pShareFilePB_;
+    QPushButton *pMoveFilePB_;
+    QPushButton *pSelectMoveDir_;
 
     QString strEntryName_;
     QString updatePath_;
@@ -44,6 +52,12 @@ private:
 
     QString pDownloadPath_;
     bool bDownlaod_;
+
+    QString ShareFileName_;
+
+    QString moveSrcFilePath_;
+    QString moveFileName_;
+    QString moveDesFilePath_;
 
 signals:
 public slots:
@@ -58,6 +72,10 @@ public slots:
     void updateFileDate();
     void delRegFile();
     void downloadFile();
+    void shareFile();
+    QString getShareFileName();
+    void moveFile();
+    void selectMoveDir();
 };
 
 #endif // BOOK_H

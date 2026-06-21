@@ -1,4 +1,4 @@
-﻿#include "mytcpsocket.h"
+#include "mytcpsocket.h"
 #include <QDebug>
 #include "opedb.h"
 #include "mytcpserver.h"
@@ -20,6 +20,38 @@ myTcpSocket::myTcpSocket(QObject *parent)
 QString myTcpSocket::getstrName()
 {
     return strName_;
+}
+
+void myTcpSocket::copyDir(QString srcPath, QString desPath)
+{
+    QDir dir;
+    dir.mkdir(desPath);
+    dir.setPath(srcPath);
+
+    QFileInfoList fileInfoList=dir.entryInfoList(); //用法
+    //两个临时的去拼接
+    QString srcTmp;
+    QString desTmp;
+    for(int i=0;i<fileInfoList.size();i++)
+    {
+        if(fileInfoList[i].isFile())
+        {
+            srcTmp=srcPath+'/'+fileInfoList[i].fileName();
+            desTmp=desTmp+'/'+fileInfoList[i].fileName();
+            QFile::copy(srcTmp,desTmp);
+        }
+        else if(fileInfoList[i].isDir())
+        {
+            if(QString(".")==fileInfoList[i].fileName()||QString("..")==fileInfoList[i].fileName())
+            {
+                continue;
+            }
+            //遍历的思想
+            srcTmp=srcPath+'/'+fileInfoList[i].fileName();
+            desTmp=desTmp+'/'+fileInfoList[i].fileName();
+            copyDir(srcTmp,desTmp);
+        }
+    }
 }
 
 //有信号调用。
@@ -162,7 +194,8 @@ void myTcpSocket::recvMsg()
             }
             else if(ret==1)
             {
-                //这里就是在线了，可以进行流程，转发函数
+                //这里就是在线了，可以进行流程，转发函数,记得给caData赋值
+                strcpy(respdu->caData,SEND_ADD_FRIEND);
                 mytcpServer::getInstance().resend(caAddUserName,pdu);
             }
             else if(ret==2)
@@ -579,6 +612,120 @@ void myTcpSocket::recvMsg()
             updateFile_.setFileName(strNewPath);
             updateFile_.open(QIODevice::ReadOnly);
             pTimer_->start(1000);
+            break;
+        }
+        case ENUM_MSG_TYPE_SHARE_FILE_RESPEST:
+        {
+            //sprintf(pdu->caData,"%s %lld",strShareFileName.toStdString().c_str(),num);
+            //前面传过来的是caData-》发送者的名字加个个数吗？，caMsg为接受者num*32加文件路径。
+            int num=0;
+            char caSendName[32]={'\0'};
+            sscanf(pdu->caData,"%s %lld",caSendName,num);
+
+            PDU *respdu=mkPDU(pdu->uiMsgLen_-num*32);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_SHARE_FILE_NOTE;
+
+            int size=num*32;
+            //把共享者（发送者）、文件路径也拷贝过去
+            strcpy(respdu->caData,caSendName);
+            memcpy((char *)(respdu->caMsg),(char *)(pdu->caMsg)+size,pdu->uiMsgLen_-num*32);
+
+            //使用转发
+            char caRecvName[32]={'\0'};
+            for(int i=0;i<num;i++)
+            {
+                strcpy(caRecvName,(char *)(pdu->caMsg)+i*32);
+                mytcpServer::getInstance().resend(caRecvName,respdu);
+            }
+
+            free(respdu);
+            respdu=nullptr;
+
+
+            //这里是定义回复的respdu,
+            respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_SHARE_FILE_RESPONSE;
+            memcpy(respdu->caData,"share file ok",64);
+
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+
+            break;
+        }
+        case ENUM_MSG_TYPE_SHARE_FILE_NOTE_RESPONSE:
+        {
+            //这里才是开始操作的
+            QString recvPath=QString("./%1").arg(pdu->caData);
+            QString shareFilePath=QString("%1").arg((char *)(pdu->caMsg));
+
+            int index=shareFilePath.lastIndexOf('/');
+            QString strFileName=shareFilePath.right(shareFilePath.size()-index-1);
+            //拼接共享的路径
+            recvPath=recvPath+'/'+strFileName;
+
+            QFileInfo fileInfo(shareFilePath);
+            if(fileInfo.isFile())
+            {
+                QFile::copy(shareFilePath,recvPath);
+            }
+            else if(fileInfo.isDir())
+            {
+                copyDir(shareFilePath,recvPath);
+            }
+            else
+            {
+
+            }
+            break;
+        }
+        case ENUM_MSG_TYPE_MOVE_FILE_RESPEST:
+        {
+            int srcLen=0;
+            int desLen=0;
+            char moveFileName[32]={'\0'};
+            sscanf(pdu->caData,"%d %d %s",srcLen,desLen,moveFileName);
+
+            char *pSrcPath=new char[srcLen];
+
+            //这里是因为等一下要更新新的目的路径
+            char *pDesPath=new char[desLen+32];
+
+            //防止脏数据清空一下
+            memset(pSrcPath,'\0',srcLen+1);
+            memset(pDesPath,'\0',desLen+1+32);
+
+            memcpy(pSrcPath,pdu->caMsg,srcLen);
+            memcpy(pDesPath,pdu->caMsg+srcLen,desLen);
+
+            PDU *respdu=mkPDU(0);
+            respdu->uiMsgType_=ENUM_MSG_TYPE_MOVE_FILE_RESPONSE;
+            //判断对了，就拼接
+            QFileInfo fileInfo(pDesPath);
+            if(fileInfo.isFile())
+            {
+                //这里是char*,QString 拼接不太行
+                strcat(pDesPath,"/");
+                strcat(pDesPath,moveFileName);
+                //static bool rename(const QString &oldName, const QString &newName);
+                bool ret=QFile::rename(pSrcPath,pDesPath);
+                if(ret==true)
+                {
+                    memcpy(respdu->caData,MOVE_DIR_OK,sizeof(MOVE_DIR_OK));
+                }
+                else
+                {
+                    memcpy(respdu->caData,COMMEN_ERR,sizeof(COMMEN_ERR));
+                }
+            }
+            else if(fileInfo.isDir())
+            {
+                memcpy(respdu->caData,MOVE_DIR_FLASE,sizeof(MOVE_DIR_FLASE));
+            }
+            write((char *)respdu,respdu->uiPDULen_);
+            free(respdu);
+            respdu=nullptr;
+
             break;
         }
         default:
