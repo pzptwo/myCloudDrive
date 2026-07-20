@@ -37,7 +37,7 @@ void myTcpSocket::copyDir(QString srcPath, QString desPath)
         if(fileInfoList[i].isFile())
         {
             srcTmp=srcPath+'/'+fileInfoList[i].fileName();
-            desTmp=desTmp+'/'+fileInfoList[i].fileName();
+            desTmp=desPath+'/'+fileInfoList[i].fileName();
             QFile::copy(srcTmp,desTmp);
         }
         else if(fileInfoList[i].isDir())
@@ -48,7 +48,7 @@ void myTcpSocket::copyDir(QString srcPath, QString desPath)
             }
             //遍历的思想
             srcTmp=srcPath+'/'+fileInfoList[i].fileName();
-            desTmp=desTmp+'/'+fileInfoList[i].fileName();
+            desTmp=desPath+'/'+fileInfoList[i].fileName();
             copyDir(srcTmp,desTmp);
         }
     }
@@ -117,7 +117,12 @@ void myTcpSocket::recvMsg()
                 //为了省略一个大小的获取用strcpy,要用双引号！！！！
                 strcpy(respdu->caData,LOGIN_OK);
                 strName_=caName;    //strName_保存的名字,就是一个名字对应一个socket吗？？？,这里好像就开始埋雷了，后面多个客户端,
-
+                //登录时确保用户文件夹存在（防止切换构建目录后文件夹丢失）
+                QDir dir;
+                if(!dir.exists(QString("./%1").arg(caName)))
+                {
+                    dir.mkdir(QString("./%1").arg(caName));
+                }
             }
             else
             {
@@ -620,7 +625,7 @@ void myTcpSocket::recvMsg()
             //前面传过来的是caData-》发送者的名字加个个数吗？，caMsg为接受者num*32加文件路径。
             int num=0;
             char caSendName[32]={'\0'};
-            sscanf(pdu->caData,"%s %lld",caSendName,num);
+            sscanf(pdu->caData,"%s %d",caSendName,&num);
 
             PDU *respdu=mkPDU(pdu->uiMsgLen_-num*32);
             respdu->uiMsgType_=ENUM_MSG_TYPE_SHARE_FILE_NOTE;
@@ -684,7 +689,7 @@ void myTcpSocket::recvMsg()
             int srcLen=0;
             int desLen=0;
             char moveFileName[32]={'\0'};
-            sscanf(pdu->caData,"%d %d %s",srcLen,desLen,moveFileName);
+            sscanf(pdu->caData,"%d %d %s",&srcLen,&desLen,moveFileName);
 
             char *pSrcPath=new char[srcLen];
 
