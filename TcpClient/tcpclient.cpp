@@ -1,4 +1,4 @@
-﻿#include "tcpclient.h"
+#include "tcpclient.h"
 #include "ui_tcpclient.h"
 #include "protocol.h"
 #include "opewidget.h"
@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QHostAddress>
 #include "book.h"
+#include "sharefile.h"
 
 TcpClient::TcpClient(QWidget *parent)
     : QWidget(parent)
@@ -68,12 +69,19 @@ void TcpClient::recvMsg()
     {
     //tcpsocket套接字里面有东西了
     qDebug()<<mytcpSocket_.bytesAvailable();//当前客户端已经发送过来、等待你读取的 字节数量;
+    while(mytcpSocket_.bytesAvailable() >= sizeof(uint))
+    {
     //分析现在的pdu格式,一定要先把uiPDULen先读出来，不先读的话，uiMsgLen得不到
+    //先用peek窥探完整PDU长度，避免半包时消费了头部却读不完整
     uint uiPDUlen=0;
-    //qint64 read(char *data, qint64 maxlen);
+    mytcpSocket_.peek((char*)&uiPDUlen,sizeof(uint));
+    if(mytcpSocket_.bytesAvailable() < (int)uiPDUlen)
+    {
+        return; // 数据还没到齐，等下一次readyRead
+    }
+    //数据够了，正式读取
     mytcpSocket_.read((char*)&uiPDUlen,sizeof(uint));
     uint uiMsgLen=uiPDUlen-sizeof(PDU);
-    //这里已经先读取了uint了,去取后面的
     PDU *pdu=mkPDU(uiMsgLen);
     mytcpSocket_.read((char *)pdu+sizeof(uint),uiPDUlen-sizeof(uint));
     switch (pdu->uiMsgType_)
@@ -186,6 +194,13 @@ void TcpClient::recvMsg()
             memcpy(caAddUser,pdu->caData,32);
             //这里要改变的opeWd里面的friendLW
             opeWidget::getInstance().getFriend().flushFriendLW(pdu);
+            // 如果共享文件窗口打开着，同步更新好友复选框
+            if(!shareFile::getInstance().isHidden())
+            {
+                //同步更新选择共享文件接受者的页面
+                QListWidget *pFriendList = opeWidget::getInstance().getFriend().getpFriendListWidget();
+                shareFile::getInstance().updateFriendlw(pFriendList);
+            }
             break;
         }
         case ENUM_MSG_TYPE_DEL_FRIEND_RESPONSE:
@@ -332,6 +347,7 @@ void TcpClient::recvMsg()
     }
     free(pdu);
     pdu=NULL;
+    }  // while
     }
     else
     {
