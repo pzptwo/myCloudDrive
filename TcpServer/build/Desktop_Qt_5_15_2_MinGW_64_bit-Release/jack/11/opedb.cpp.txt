@@ -1,0 +1,268 @@
+#include "opedb.h"
+#include <QMessageBox>
+#include<QDebug>
+
+OpeDB::OpeDB(QObject *parent)
+    : QObject{parent}
+{
+    m_db=QSqlDatabase::addDatabase("QSQLITE");//参数类型
+    //init();
+
+}
+
+OpeDB &OpeDB::getInstance()
+{
+
+    static OpeDB instance;//可以重名，也可以不重名（好分别）
+    return instance;
+}
+
+void OpeDB::init()
+{
+
+    m_db.setHostName("localhost");//连接IP地址,但我们是本地测试
+    m_db.setDatabaseName("C:\\Users\\bob\\Documents\\TcpServer\\cloud.db");
+    if(m_db.open()){
+       //查询：
+        QSqlQuery query;
+       query.exec("select * from usrInfo");
+        while(query.next())
+       {
+           QString data=QString("%1,%2,%3").arg(query.value(0).toString()).arg(query.value(1).toString()).arg(query.value(2).toString());
+            qDebug()<<data;
+        }
+
+    }
+    else{
+
+        QMessageBox::critical(NULL,"打开数据库","打开数据库失败");
+    }
+}
+
+OpeDB::~OpeDB()
+{
+    m_db.close();
+}
+
+bool OpeDB::handleRegist(const char *name, const char *pwd)
+{
+    //形参的有效性，
+    if(NULL==name||NULL==pwd){
+        qDebug()<<"name | pwd is NULL";
+        return false;
+    }
+   // char caQuery[128]={'\0'};，拼接,拼接成为语句,字符串单引号.
+    QString data=QString("insert into usrInfo(name,pwd) values (\'%1\',\'%2\')").arg(name).arg(pwd);
+    qDebug()<<data;
+    //查询：
+    QSqlQuery query;
+    return query.exec(data);//执行的语句
+
+}
+
+bool OpeDB::handleLogin(const char *name, const char *pwd)
+{
+    //形参的有效性
+    if(NULL==name||NULL==pwd){
+        qDebug()<<"name | pwd is NULL";
+        return false;
+    }
+
+    QString data=QString("select * from usrInfo where name =\'%1\'and pwd=\'%2\'and online=0").arg(name).arg(pwd);
+    qDebug()<<data;
+    QSqlQuery query;
+    query.exec(data);
+    //更改数据库
+    if( query.next())// 获取数据,放到query,只有一条记录;
+    {
+        data=QString("update usrInfo set online=1 where name =\'%1\'and pwd=\'%2\'").arg(name).arg(pwd);
+        qDebug()<<data;
+        QSqlQuery query;
+        query.exec(data);
+
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+void OpeDB::handleOffline(const char *name)
+{
+    //形参的有效性
+    if(NULL==name){
+        qDebug()<<"name is NULL";
+        return ;
+    }
+    QString data=QString("update usrInfo set online=0 where name =\'%1\'").arg(name);
+
+    QSqlQuery query;
+    query.exec(data);
+}
+
+QStringList OpeDB::handleAllOnline()
+{
+    QString data=QString("select name from usrInfo where online=1");
+
+    QSqlQuery query;
+    query.exec(data);
+
+    QStringList reslut;
+    reslut.clear();
+
+    while(query.next())
+    {
+        reslut.append(query.value(0).toString());//给数据,转换成字符串s
+    }
+    return reslut;
+}
+
+int OpeDB::handleSearchUsr(const char *name)
+{
+    if(NULL==name)
+    {
+        return -1;//不存在
+    }
+    QString data=QString("select online from usrInfo where name =\'%1\'").arg(name);//替换的形式,
+   // qDebug()<<data;
+    QSqlQuery query;
+    query.exec(data);
+    //用int类型，是因为有三种结果，
+    if(query.next())
+    {
+       int ret= query.value(0).toInt();
+        if(1==ret){
+           return 1;//在线
+        }
+        else if(0==ret){
+            return 0;//不在线
+        }
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+int OpeDB::handleAddFriendCheck(const char *pername, const char *name)
+{
+    if(NULL==pername||NULL==name)
+    {
+        return -1;
+    }
+
+    //链表查询，连表查询，自身，这里是数据库的知识。，这里拼接字符串
+    QString data=QString("select * from friend where "
+                           "(id=(select id from usrInfo where name=\'%1\') and "  // and前加空格
+                           "friendId=(select id from usrInfo where name=\'%2\')) or "  // or前加空格
+                           "(id=(select id from usrInfo where name=\'%3\') and "  // and前加空格
+                           "friendId=(select id from usrInfo where name=\'%4\'))")
+                       .arg(pername).arg(name).arg(name).arg(pername);
+
+    qDebug()<<data;
+    QSqlQuery query;
+    query.exec(data);
+    if(query.next())
+    {
+        return 0;//双方已是好友
+        }
+
+    else
+    {   //为啥不直接调用
+        data=QString("select online from usrInfo where name =\'%1\'").arg(pername);//替换的形式
+        qDebug()<<data;
+        QSqlQuery query;
+        query.exec(data);
+        //用int类型，是因为有三种结果，
+        if(query.next())
+        {
+            int ret= query.value(0).toInt();
+            if(1==ret){
+                return 1;//在线
+            }
+            else if(0==ret){
+                return 2;//不在线
+            }
+        }
+        else {
+            return 3;//不存在
+        }
+    }
+}
+
+void OpeDB::handleAddfriend(const char *friendName, const char *loginName)
+{
+    // 获取好友id
+    qDebug() << "friendNmae=" << friendName ;
+    QString strSql = QString("select id from usrInfo where name = \'%1\'").arg(friendName);
+    QSqlQuery query;
+    query.exec(strSql);
+    query.next();
+    int friendId = query.value(0).toInt();
+    // 获取登录用户id
+    strSql = QString("select id from usrInfo where name = \'%1\'").arg(loginName);
+    query.exec(strSql);
+    query.next();
+    int loginId = query.value(0).toInt();
+    // 新增好友
+    strSql = QString("insert into friend (id,friendId) values (\'%1\',\'%2\'), (\'%2\',\'%1\')").arg(friendId).arg(loginId);
+    query.exec(strSql);
+}
+
+QStringList OpeDB::handleFlushFriend(const char *name)
+{
+    QStringList strFriendList;
+    strFriendList.clear();
+    if(NULL==name){
+        return strFriendList;
+    }
+    else
+    {   //查询语句
+        QString data=QString(" select name from usrInfo where online=1 "
+                               "and id in (select id from friend where friendId="
+                               "(select id from usrInfo where name =\'%1\'))").arg(name);//替换的形式
+        // qDebug()<<data;
+        QSqlQuery query;
+        query.exec(data);
+        // while(query.next()){
+        //    strFriendList.append(query.value(0).toString());
+        //     qDebug()<<query.value(0).toString();
+        // }
+
+        data=QString(" select name from usrInfo where online=1 "
+                       "and id in (select friendId from friend where id ="
+                       " (select id from usrInfo where name =\'%1\'))").arg(name);//替换的形
+        //query.clear();
+        query.exec(data);
+        while(query.next()){
+            strFriendList.append( query.value(0).toString());
+            qDebug()<<query.value(0).toString();
+
+        }
+        return strFriendList;
+    }
+}
+
+bool OpeDB::handleDelFriend(const char *name, const char *friendName)
+{
+    if(NULL==name||NULL==friendName)
+    {
+        return false;
+    }
+    QString data=QString("delete from friend where id="
+                           "(select id from usrInfo where name=\'%1\')"
+                           " and friendId="
+                           "(select id from usrInfo where name=\'%2\')"
+                           ).arg(name).arg(friendName);
+    QSqlQuery query;
+    query.exec(data);
+    query.clear();
+    data=QString("delete from friend where id="
+                           "(select id from usrInfo where name=\'%1\')"
+                           " and friendId="
+                           "(select id from usrInfo where name=\'%2\')"
+                           ).arg(friendName).arg(name);
+
+    query.exec(data);
+    return true;
+}

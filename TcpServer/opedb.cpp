@@ -21,7 +21,7 @@ void opedb::init()
     db_.setHostName("localhost");   //设置域名
     //void setDatabaseName(const QString& name);ctrl
     //添加的方法不行
-    db_.setDatabaseName("C:\\Users\\bob\\Desktop\\myCloudDrive\\review_cloudDrive\\TcpServer\\cloudDrive.db"); //这样的写法为什么.
+    db_.setDatabaseName("cloudDrive.db"); //改为相对路径，提升可移植性
 
     if(db_.open())
     {

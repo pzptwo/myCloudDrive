@@ -125,7 +125,7 @@ void shareFile::selectOk()
     PDU *pdu=mkPDU(32*num+pathUtf8.size()+1);
     pdu->uiMsgType_=ENUM_MSG_TYPE_SHARE_FILE_RESPEST;
     //将共享文件的名字和有多少个人传到caData里面
-    sprintf(pdu->caData,"%s %d",strShareFileName.toStdString().c_str(),num);
+    sprintf(pdu->caData,"%s %d",strsharetooneName.toStdString().c_str(),num);
     //给caMsg赋值
     int j=0;
     for(int i=0;i<pBg.size();i++)

@@ -1,4 +1,4 @@
-﻿#include "book.h"
+#include "book.h"
 #include <QListWidgetItem>
 #include <QFileDialog>
 #include "opewidget.h"
@@ -429,6 +429,8 @@ void Book::shareFile()
 
     }
     FriendLW &friendlw=opeWidget::getInstance().getFriend();
+    // 先触发异步刷新好友列表
+    friendlw.flushFriend();
     QListWidget *pFriendList=friendlw.getpFriendListWidget();
 
     shareFile::getInstance().updateFriendlw(pFriendList);

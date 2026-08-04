@@ -1,0 +1,38 @@
+#ifndef MYTCPSOCKET_H
+#define MYTCPSOCKET_H
+
+#include <QObject>
+#include <QTcpSocket>
+#include"opedb.h"
+#include "protocol.h"
+#include <QDir>
+#include <QFile>
+#include <QTimer>
+
+class MyTcpSocket : public QTcpSocket
+{
+    Q_OBJECT//自己去了解。
+public:
+    explicit MyTcpSocket(QObject *parent = nullptr);
+    QString getName();
+    void copyDir(QString strSrcDir,QString strDestDir);
+signals:
+    void offline(MyTcpSocket *mysocket);
+public slots:
+    void recvMsg();
+    void clientOffline();
+    void sendFileToclient();
+
+private:
+    QString m_strName;//unique
+
+    QFile m_file;
+    qint64 m_iTotal;
+    qint64 m_iRecved;
+    bool m_bUpload;
+
+    QTimer *m_pTimer;
+
+};
+
+#endif // MYTCPSOCKET_H

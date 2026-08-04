@@ -1,0 +1,213 @@
+myCloudDrive 云盘系统 — 面试项目介绍
+
+一、项目背景与目标
+
+这是一个基于 Qt5 + C++ 的 C/S（客户端/服务端）架构云盘系统。项目从零搭建，不用任何第三方网络库，完全基于 Qt 原生网络模块实现。核心目标是实现一个功能完整的网盘应用，涵盖用户体系、好友社交、文件管理和即时通讯四大模块。
+
+二、技术栈
+
+| 层面     | 选型                    | 说明                           |
+| -------- | ----------------------- | ------------------------------ |
+| 语言     | C++（C++17）            | 核心逻辑用 C++ 编写            |
+| UI 框架  | Qt 5.15.2（Widgets）    | 使用传统的 Widget 而非 QML     |
+| 构建     | qmake + MinGW 64-bit    | Windows 下编译                 |
+| 网络通讯 | QTcpServer / QTcpSocket | TCP 长连接，全双工通信         |
+| 数据存储 | SQLite                  | 通过 Qt SQL 模块操作本地数据库 |
+| 通讯协议 | 自定义 PDU 二进制协议   | 结构体 + 弹性数组，20+ 消息类型 |
+
+三、项目整体架构
+
+客户端（TcpClient）                    服务端（TcpServer）
++---------------------------+          +-----------------------------+
+|  UI 层                    |          |  UI 层（控制台窗口）         |
+|  +- TcpClient             |          |  +- TcpServer（显示日志）    |
+|  |   (登录/注册窗口)       |          |                              |
+|  +- opeWidget             |   TCP   |  MyTcpServer                 |
+|  |  +- FriendLW           | <-----> |  +- 监听端口 8888            |
+|  |  |   (好友列表)         |   PDU   |  +- QList<MyTcpSocket*>     |
+|  |  |  +- Online          |  协议   |  |   (管理所有客户端连接)     |
+|  |  |  +- PrivateChat     |         |  +- incomingConnection()    |
+|  |  +- Book               |         |       |                       |
+|  |     (文件管理)          |         |  MyTcpSocket                 |
+|  |     +- ShareFile       |         |  +- recvMsg() 消息分发      |
+|  +- protocol.h/.cpp       |         |  +- 数据库交互               |
+|     (PDU 编解码)           |         |  +- 文件 I/O 操作            |
++---------------------------+         |                              |
+                                      |  opeDB（数据库单例）         |
+                                      |  +- 用户表                   |
+                                      |  +- 好友关系表               |
+                                      |  +- 文件目录操作             |
+                                      +------------------------------+
+
+设计要点：
+- 客户端采用单例模式管理核心对象（TcpClient、opeWidget、PrivateChat、shareFile），保证全局只有一份实例，各模块通过 getInstance() 互相访问。
+- 操作界面使用 QStackedWidget + QListWidget 实现标签页切换（好友 / 图书），左侧为导航列表，右侧为堆叠页面。
+- 登录成功后 TcpClient 隐藏，显示 opeWidget，实现窗口切换。
+
+四、自定义 PDU 通讯协议
+
+这是项目的核心技术亮点。没有使用 JSON 或 XML 等文本协议，而是设计了一套紧凑的二进制协议。
+
+PDU 结构体定义：
+
+struct PDU {
+    uint uiPDULen_;      // PDU 总长度（含自身 + caMsg）
+    uint uiMsgLen_;      // 实际消息体长度
+    uint uiMsgType_;     // 消息类型（枚举值，路由分发依据）
+    char caData[64];     // 固定 64 字节附加数据（前32字节=参数1，后32字节=参数2）
+    char caMsg[];        // 弹性数组（C99 灵活数组），存放变长消息体
+};
+
+mkPDU(uint uiMsgLen) 函数通过 malloc 动态分配 sizeof(PDU) + uiMsgLen 大小的内存。
+caData[64] 巧妙地拆分成两个 32 字节段，在注册/登录场景中分别存放用户名和密码，在文件操作中存放文件名和路径等。
+
+协议编解码流程：
+1. 发送方：构造 PDU → 填充字段 → QTcpSocket::write((char*)pdu, pdu->uiPDULen_) 整块发送
+2. 接收方：先 read 4 字节获取 uiPDULen → 计算 uiMsgLen = uiPDULen - sizeof(PDU) → 调用 mkPDU(uiMsgLen) 分配接收缓冲区 → 再 read 剩余字节填充 PDU → 根据 uiMsgType_ 进行 switch-case 路由分发
+
+之所以先读取 4 字节再读取剩余数据，是因为 TCP 是流式协议，必须先知道完整包长度才能正确分包。
+
+消息类型枚举（部分）：
+
+enum ENUM_MSG_TYPE {
+    ENUM_MSG_TYPE_REGISTER_RESPEST,      // 注册请求
+    ENUM_MSG_TYPE_REGISTER_RESPONSE,     // 注册响应
+    ENUM_MSG_TYPE_LOGIN_RESPEST,         // 登录请求
+    ENUM_MSG_TYPE_LOGIN_RESPONSE,        // 登录响应
+    ENUM_MSG_TYPE_ALL_ONLINE_RESPEST,    // 查看在线用户
+    ENUM_MSG_TYPE_SEARCH_USER_RESPEST,   // 搜索用户
+    ENUM_MSG_TYPE_ADD_USER_RESPEST,      // 添加好友请求
+    ENUM_MSG_TYPE_ADD_USER_AGREED,       // 同意添加好友
+    ENUM_MSG_TYPE_ADD_USER_REFUSE,       // 拒绝添加好友
+    ENUM_MSG_TYPE_FLUSH_FRIEND_RESPEST,  // 刷新好友列表
+    ENUM_MSG_TYPE_DEL_FRIEND_RESPEST,    // 删除好友
+    ENUM_MSG_TYPE_PRIVATE_CHAT_RESPEST,  // 私聊
+    ENUM_MSG_TYPE_GROUP_CHAT_RESPEST,    // 群聊
+    ENUM_MSG_TYPE_CREATE_DIR_RESPEST,    // 创建文件夹
+    ENUM_MSG_TYPE_FLUSH_DIR_RESPEST,     // 刷新文件列表
+    ENUM_MSG_TYPE_DEL_DIR_RESPEST,       // 删除文件夹
+    ENUM_MSG_TYPE_RENAME_FILE_RESPEST,   // 重命名
+    ENUM_MSG_TYPE_ENTRY_DIR_RESPEST,     // 进入文件夹
+    ENUM_MSG_TYPE_UPDATE_FILE_RESPEST,   // 上传文件
+    ENUM_MSG_TYPE_DEL_FILE_RESPEST,      // 删除文件
+    ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST, // 下载文件
+    ENUM_MSG_TYPE_SHARE_FILE_RESPEST,    // 共享文件
+    ENUM_MSG_TYPE_MOVE_FILE_RESPEST,     // 移动文件
+};
+
+每种消息类型有对应的 _RESPEST（请求）和 _RESPONSE（响应），命名规范统一。
+服务端和客户端各维护一份相同的 protocol.h，两端共享协议定义，保证编解码一致性。
+
+五、客户端模块详解
+
+5.1 启动流程
+
+1. main.cpp 创建 TcpClient 实例
+2. 构造函数中调用 loadConfig() 从 Qt 资源文件 client.config 读取服务端 IP 和端口
+3. 调用 mytcpSocket_.connectToHost(QHostAddress(strIp_), port_) 发起 TCP 连接
+4. 绑定信号槽：connected → connectHost()（弹窗提示连接成功）、readyRead → recvMsg()
+
+5.2 登录与注册
+
+- 用户名和密码封装在 PDU 的 caData 中（前 32 字节用户名，后 32 字节密码）
+- 服务端查询 SQLite 数据库验证，返回 LOGIN_OK 或 LOGIN_FALSE
+- 登录成功后，客户端保存用户名 strLoginName_，初始化当前目录路径 strCurPath_ = "./用户名"，然后切换到操作界面 opeWidget
+
+5.3 好友系统
+
+- 查看在线用户：客户端请求 → 服务端遍历在线用户列表 → 返回在线用户名列表 → FriendLW::showAllOnline() 在弹窗中展示
+- 添加好友：搜索用户 → 发送添加请求 → 目标用户收到 ADD_USER_RESPEST → 弹窗询问同意/拒绝 → 回复 ADD_USER_AGREED 或 ADD_USER_REFUSE
+- 删除好友：DEL_FRIEND_RESPEST → 服务端从数据库删除关系 → 双方同步刷新好友列表
+- 好友列表在 FriendLW 中通过 QListWidget 展示，支持双击进入私聊
+
+5.4 文件管理（Book 模块）
+
+文件管理是功能最密集的模块，用 QListWidget 展示文件列表，通过图标区分文件夹（dir.jpg）和文件（reg.png）：
+
+| 功能     | PDU 消息类型              | 关键实现                                                                                     |
+| -------- | ------------------------- | -------------------------------------------------------------------------------------------- |
+| 创建文件夹 | CREATE_DIR                | 通过 QInputDialog::getText() 获取文件夹名，PDU 携带当前路径                                  |
+| 删除文件夹 | DEL_DIR                   | 获取当前选中项，服务端区分文件夹和文件，返回不同结果                                         |
+| 重命名   | RENAME_FILE               | 对话框输入新名称，服务端执行 rename 操作                                                     |
+| 进入文件夹 | ENTRY_DIR                 | 双击 QListWidget 项 → 拼接路径 → 服务端返回子目录文件列表                                    |
+| 返回上级 | 返回按钮                  | 通过 strrchr 截取上级路径，重新请求文件列表                                                  |
+| 上传文件 | UPDATE_FILE               | QFileDialog::getOpenFileName() 选择本地文件 → 分块写入 Socket → 服务端写入磁盘               |
+| 下载文件 | DOWNLOAD_FILE             | 服务端先发送 PDU 包头（含文件大小）→ 客户端 downloadFile 以 WriteOnly 打开 → 后续 readyRead 中读取的二进制数据直接写入文件 → 通过 recived_ 和 total_ 校验完整性 |
+| 删除文件 | DEL_FILE                  | 与删文件夹共用逻辑，服务端区分类型                                                           |
+| 共享文件 | SHARE_FILE                | 弹出 ShareFile 窗口选择好友 → 接收方收到 SHARE_FILE_NOTE → 确认后服务端复制文件到接收方目录  |
+| 移动文件 | MOVE_FILE                 | 选择目标路径 → 服务端执行文件移动操作                                                        |
+
+下载文件的特殊处理：
+当客户端处于下载状态时（bDownload_ == true），recvMsg() 中的数据不再按 PDU 解析，而是直接当作二进制数据写入文件，直到 recived_ >= total_。这解决了 TCP 流式传输中大文件分片的问题。
+
+5.5 即时通讯
+
+- 私聊：PrivateChat 单例窗口，caData 存放发送方名称，消息体通过 caMsg 传输。收到 PRIVATE_CHAT_RESPEST 时自动弹出聊天窗口。
+- 群聊：通过 GROUP_CHAT 类型 + 在线用户列表广播实现。群聊消息显示在 FriendLW 的 QTextEdit 区域中。
+
+5.6 单例模式的应用
+
+项目中多处使用单例模式避免全局变量传递，例如：
+
+static TcpClient &getinstance() {
+    static TcpClient instance;
+    return instance;
+}
+
+任何模块中都能通过 TcpClient::getinstance().getTcpSocket() 获取同一个 Socket 发送数据。
+opeWidget、PrivateChat、shareFile 同样采用单例模式。
+
+六、服务端模块详解
+
+6.1 启动与监听
+
+main.cpp 中先初始化数据库（opeDB::getInstance().init()），然后启动 TcpServer 窗口。
+服务端使用 QTcpServer::listen(QHostAddress::Any, 8888) 监听所有网卡的 8888 端口。
+
+6.2 多客户端管理
+
+MyTcpServer 重写 incomingConnection()，当有新连接时创建 MyTcpSocket 对象，加入 QList<MyTcpSocket*> 列表统一管理。
+每个 MyTcpSocket 绑定 readyRead → recvMsg()，独立处理对应客户端的消息收发。
+服务端需要转发消息时（如私聊、好友请求），通过遍历 Socket 列表根据用户名匹配目标客户端。
+
+6.3 数据库设计（opeDB）
+
+使用 SQLite 数据库，opeDB 为单例，包含：
+- 用户表：存储用户名、密码、在线状态
+- 好友关系表：存储好友对（双向关系）
+- 提供 init()、handleRegister()、handleLogin()、handleAddFriend()、handleDelFriend()、handleFlushFriend() 等方法
+
+6.4 文件存储
+
+服务端按用户隔离目录，每个用户的文件存储在 "./用户名/" 目录下。
+使用 QDir 进行目录操作，QFile 进行文件读写，通过 QFileInfoList 获取文件列表并填充到 PDU 的 caMsg 中（以 FileInfo 结构数组形式传输）。
+
+七、技术亮点总结
+
+1. 自定义二进制协议：从零设计并实现了一套紧凑的 PDU 通讯协议，包含变长消息体、弹性数组、类型路由分发，比 JSON/XML 更高效
+2. TCP 粘包/拆包处理：先读 4 字节协议头获取包长度，再按长度读取完整包，正确解决了 TCP 流式协议的边界问题
+3. 大文件分片传输：下载时区分"协议解析模式"和"二进制写入模式"，通过 total_ / recived_ 跟踪传输进度
+4. 单例模式应用：核心模块全部采用单例，避免跨窗口的对象传递，简洁高效
+5. 信号槽机制：充分利用 Qt 的信号槽实现异步回调（connected、readyRead、clicked、doubleClicked、currentRowChanged），UI 层与业务逻辑解耦
+6. 路径管理：客户端维护当前目录路径，支持文件夹嵌套进入与返回，实现了类似文件系统的目录导航
+7. 好友系统双向通知：添加/删除好友时，服务端同时通知双方客户端，保证状态同步
+8. 模块化设计：客户端按功能拆分为 Book（文件）、FriendLW（好友）、PrivateChat（私聊）、Online（在线用户）等独立模块，职责清晰
+
+八、个人收获
+
+通过这个项目，完整地实践了：
+- 基于 TCP 的 C/S 架构设计与实现
+- 自定义二进制协议的编解码
+- Qt 网络编程（QTcpServer / QTcpSocket）
+- Qt Widgets UI 开发（布局管理、列表控件、对话框、多页面切换）
+- SQLite 数据库设计与 CRUD 操作
+- 单例模式等设计模式的实际应用
+- 文件 I/O 操作（上传、下载、分片传输）
+- 协议层的消息路由与分发（switch-case + 枚举）
+
+
+========================================
+一段话版本（适合面试开场用）
+========================================
+
+这是一个基于 Qt5 和 C++ 从零开发的 C/S 架构云盘系统，包含用户注册登录、好友管理、即时通讯和文件管理四个核心模块。项目最大的亮点是我自己设计了一套紧凑的 PDU 二进制通讯协议，通过结构体加弹性数组的方式定义消息格式，支持 20 多种消息类型的路由分发，比 JSON 更高效，同时解决了 TCP 流式传输中的粘包拆包问题。客户端用单例模式管理核心对象，通过 Qt 信号槽实现异步网络回调与 UI 解耦；服务端用 QTcpServer + 多客户端 Socket 管理多个在线用户，后端对接 SQLite 数据库做用户信息和好友关系的增删改查。文件模块支持上传、下载、删除、移动、共享以及文件夹的嵌套导航，其中下载采用"先接收协议头获取文件大小，后续数据直接二进制写入文件"的分片传输方案。整个项目涵盖 TCP 网络编程、自定义协议设计、数据库操作、设计模式和 Qt 全栈开发，是一个比较完整的 C++ 实战项目。
