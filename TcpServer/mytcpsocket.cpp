@@ -384,6 +384,7 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] caPath;
             break;
         }
         case ENUM_MSG_TYPE_DEL_DIR_RESPEST:
@@ -428,6 +429,7 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] pPath;
             break;
         }
         case ENUM_MSG_TYPE_RENAME_FILE_RESPEST:
@@ -459,6 +461,7 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] pPath;
             break;
         }
         case ENUM_MSG_TYPE_ENTRY_DIR_RESPEST:
@@ -515,6 +518,7 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] pPath;
             break;
         }
         case ENUM_MSG_TYPE_UPDATE_FILE_RESPEST:
@@ -591,6 +595,7 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] pPath;
             break;
         }
         case ENUM_MSG_TYPE_DOWNLOAD_FILE_RESPEST:
@@ -737,6 +742,8 @@ void myTcpSocket::recvMsg()
             write((char *)respdu,respdu->uiPDULen_);
             free(respdu);
             respdu=nullptr;
+            delete[] pSrcPath;
+            delete[] pDesPath;
 
             break;
         }
