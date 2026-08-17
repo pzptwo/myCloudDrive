@@ -467,7 +467,7 @@ void myTcpSocket::recvMsg()
         case ENUM_MSG_TYPE_ENTRY_DIR_RESPEST:
         {
             char strName[32]={'\0'};
-            char *pPath=new char[pdu->uiMsgLen_];
+            char *pPath=new char[pdu->uiMsgLen_ + 1];
             strcpy(strName,pdu->caData);
             memcpy(pPath,(char *)(pdu->caMsg),uiMsgLen);
             pPath[uiMsgLen] = '\0';
@@ -524,7 +524,7 @@ void myTcpSocket::recvMsg()
         case ENUM_MSG_TYPE_UPDATE_FILE_RESPEST:
         {
             char strUpdateName[32]={'\0'};
-            char *pPath=new char[pdu->uiMsgLen_];
+            char *pPath=new char[pdu->uiMsgLen_ + 1];
             qint64 fileSize;
             //客服端使用的是sprintf
             sscanf(pdu->caData,"%s %lld",strUpdateName,&fileSize);
