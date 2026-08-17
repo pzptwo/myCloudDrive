@@ -336,6 +336,7 @@ void TcpClient::recvMsg()
                 delete[]pPath;
                 pPath=nullptr;
             }
+            break;
         }
         case ENUM_MSG_TYPE_MOVE_FILE_RESPONSE:
         {
