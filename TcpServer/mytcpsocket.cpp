@@ -709,8 +709,8 @@ void myTcpSocket::recvMsg()
             char *pDesPath=new char[desLen+32];
 
             //防止脏数据清空一下
-            memset(pSrcPath,'\0',srcLen+1);
-            memset(pDesPath,'\0',desLen+1+32);
+            memset(pSrcPath,'\0',srcLen);
+            memset(pDesPath,'\0',desLen+32);
 
             memcpy(pSrcPath,pdu->caMsg,srcLen);
             memcpy(pDesPath,pdu->caMsg+srcLen,desLen);
